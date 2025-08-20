@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Split-View OpenAI Chat Playground</title>
+  <style>
+    :root{
+      --bg:#0b0e14; --panel:#11141b; --border:#1f2430; --muted:#97a1b0; --text:#e6edf3; --accent:#4f8cff;
+      --danger:#ff6363; --ok:#34d399; --warn:#fbbf24;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; background:linear-gradient(180deg,#0b0e14 0%,#0d1117 100%); color:var(--text); font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"}
+    .app{display:flex; height:100vh; gap:0}
+    .left{width:420px; min-width:360px; max-width:520px; border-right:1px solid var(--border); background:var(--panel); padding:18px; overflow:auto}
+    .right{flex:1; display:flex; flex-direction:column}
+    h1{font-size:16px; margin:0 0 8px 0}
+    .sub{color:var(--muted); font-size:12px; margin-bottom:16px}
+    label{display:block; font-size:12px; color:#b7c1d1; margin:12px 0 6px}
+    input[type="text"], input[type="password"], input[type="number"], textarea, select{
+      width:100%; background:#0d1117; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; outline:none;
+    }
+    textarea{min-height:80px; resize:vertical}
+    .row{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center}
+    .small{font-size:12px; color:var(--muted)}
+    .btn{background:var(--accent); border:none; color:white; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600}
+    .btn[disabled]{opacity:.6; cursor:not-allowed}
+    .btn.secondary{background:#2a2f3a}
+    .btn.danger{background:var(--danger)}
+    .stack{display:flex; gap:8px; flex-wrap:wrap}
+    .switch{display:flex; align-items:center; gap:8px}
+    .switch input{accent-color:var(--accent)}
+
+    /* Right */
+    .dropzone{margin:14px; border:1px dashed #2b3340; border-radius:14px; padding:18px; text-align:center; color:var(--muted); background:#0d1117}
+    .dropzone.drag{border-color:var(--accent); color:#cfe0ff; background:#0f1524}
+    .thumbs{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
+    .thumb{position:relative; width:90px; height:90px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#0b0f19}
+    .thumb img{width:100%; height:100%; object-fit:cover}
+    .thumb button{position:absolute; top:4px; right:4px; background:#0008; border:none; color:#fff; border-radius:7px; font-size:11px; padding:4px 6px; cursor:pointer}
+
+    .chat{flex:1; overflow:auto; padding:0 14px 14px}
+    .bubble{max-width:70ch; padding:12px 14px; margin:14px 0; border:1px solid var(--border); border-radius:14px}
+    .user{background:#0f1524}
+    .assistant{background:#0f1419}
+    .meta{font-size:11px; color:var(--muted); margin-top:6px}
+
+    .composer{display:flex; gap:10px; padding:10px 14px; border-top:1px solid var(--border); background:var(--panel)}
+    .composer textarea{height:52px; min-height:52px}
+
+    .kvs{display:grid; grid-template-columns: 1fr 1fr; gap:8px}
+    .help{background:#0d1117; border:1px solid var(--border); border-radius:10px; padding:10px; color:#cdd6e3; font-size:12px}
+    code.inline{background:#0b0f19; padding:2px 6px; border-radius:6px; border:1px solid var(--border)}
+    .footer{font-size:11px; color:var(--muted); padding-top:8px}
+    @media (max-width: 920px){ .left{width:100%; max-width:none} .app{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- LEFT: Controls -->
+    <aside class="left">
+      <h1>OpenAI Chat 설정</h1>
+      <div class="sub">브라우저에서 직접 OpenAI API 호출합니다. <span style="color:var(--warn)">API 키를 클라이언트에 저장/노출하는 방식은 보안상 위험</span>할 수 있습니다. 실제 제품에는 서버 프록시를 권장합니다.</div>
+
+      <label for="apiKey">API 키</label>
+      <div class="row">
+        <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
+        <button class="btn secondary" id="toggleKey">보기</button>
+      </div>
+      <div class="switch small"><input id="rememberKey" type="checkbox"/> <label for="rememberKey" class="small">브라우저에 저장 (localStorage, 비권장)</label></div>
+
+      <label for="model">모델 (GPT-4 계열)</label>
+      <select id="model">
+        <option value="gpt-4o" selected>gpt-4o (멀티모달)</option>
+        <option value="gpt-4o-mini">gpt-4o-mini (저비용)</option>
+        <option value="gpt-4.1">gpt-4.1</option>
+        <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+      </select>
+
+      <div class="kvs">
+        <div>
+          <label for="temperature">temperature: <span id="tempVal" class="small">1.0</span></label>
+          <input id="temperature" type="range" min="0" max="2" step="0.01" value="1"/>
+        </div>
+        <div>
+          <label for="maxTokens">출력 토큰 상한 (max tokens)</label>
+          <input id="maxTokens" type="number" min="1" max="4096" placeholder="예: 400" />
+        </div>
+      </div>
+
+      <label for="systemPrompt">시스템 프롬프트</label>
+      <textarea id="systemPrompt" placeholder="역할/톤/규칙을 정의하세요. 예) 당신은 교과 개념을 설명하는 튜터입니다. 답변은 간결하고 예시를 포함합니다."></textarea>
+
+      <label for="userPrompt">유저 프롬프트 (왼쪽에서 작성해도 되고, 아래 채팅창에 직접 입력해도 됩니다)</label>
+      <textarea id="userPrompt" placeholder="질문 또는 요청을 입력"></textarea>
+
+      <div class="stack" style="margin-top:10px">
+        <button class="btn" id="sendBtn">전송</button>
+        <button class="btn secondary" id="clearBtn">채팅 초기화</button>
+      </div>
+
+      <div class="help" style="margin-top:14px">
+        <div style="font-weight:600; margin-bottom:6px">사용법</div>
+        <ol style="margin:0; padding-left:18px">
+          <li>API 키를 입력하고 필요하면 저장을 체크합니다.</li>
+          <li>모델/temperature/토큰을 설정합니다.</li>
+          <li>이미지는 오른쪽 영역에 드래그&드롭으로 추가합니다.</li>
+          <li>프롬프트를 입력하고 <b>전송</b>을 누릅니다.</li>
+        </ol>
+        <div class="footer">참고: 일부 모델/엔드포인트는 브라우저 CORS 정책에 따라 동작하지 않을 수 있습니다. 동작 문제가 있으면 서버 프록시를 사용하세요.</div>
+      </div>
+    </aside>
+
+    <!-- RIGHT: Dropzone + Chat -->
+    <main class="right">
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="이미지 업로드">
+        <div><strong>이미지 업로드</strong> — 드래그&드롭하거나 클릭해서 선택</div>
+        <input id="fileInput" type="file" accept="image/*" multiple hidden />
+        <div id="thumbs" class="thumbs" aria-live="polite"></div>
+      </div>
+
+      <div id="chat" class="chat" aria-live="polite" aria-busy="false"></div>
+
+      <div class="composer">
+        <textarea id="composer" placeholder="여기에 질문을 입력... (또는 왼쪽 유저 프롬프트 사용)"></textarea>
+        <button class="btn" id="sendBtn2">전송</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ==== State ====
+    const els = {
+      apiKey: document.getElementById('apiKey'),
+      toggleKey: document.getElementById('toggleKey'),
+      rememberKey: document.getElementById('rememberKey'),
+      model: document.getElementById('model'),
+      temperature: document.getElementById('temperature'),
+      tempVal: document.getElementById('tempVal'),
+      maxTokens: document.getElementById('maxTokens'),
+      systemPrompt: document.getElementById('systemPrompt'),
+      userPrompt: document.getElementById('userPrompt'),
+      sendBtn: document.getElementById('sendBtn'),
+      sendBtn2: document.getElementById('sendBtn2'),
+      clearBtn: document.getElementById('clearBtn'),
+      dropzone: document.getElementById('dropzone'),
+      fileInput: document.getElementById('fileInput'),
+      thumbs: document.getElementById('thumbs'),
+      chat: document.getElementById('chat'),
+      composer: document.getElementById('composer'),
+    };
+
+    const imageList = []; // {name, type, dataUrl, size}
+
+    // ==== Helpers ====
+    function saveKeyIfNeeded(){
+      if(els.rememberKey.checked){ localStorage.setItem('OPENAI_API_KEY', els.apiKey.value || ''); }
+      else { localStorage.removeItem('OPENAI_API_KEY'); }
+    }
+    function loadKey(){
+      const k = localStorage.getItem('OPENAI_API_KEY');
+      if(k){ els.apiKey.value = k; els.rememberKey.checked = true; }
+    }
+    function escapeHTML(s){
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
+    }
+    function appendBubble(role, html){
+      const div = document.createElement('div');
+      div.className = `bubble ${role}`;
+      div.innerHTML = html;
+      els.chat.appendChild(div);
+      els.chat.scrollTop = els.chat.scrollHeight;
+    }
+    function setBusy(v){
+      els.chat.setAttribute('aria-busy', v ? 'true':'false');
+      els.sendBtn.disabled = els.sendBtn2.disabled = !!v;
+    }
+
+    // ==== UI wiring ====
+    loadKey();
+
+    els.toggleKey.addEventListener('click', () => {
+      els.apiKey.type = els.apiKey.type === 'password' ? 'text' : 'password';
+      els.apiKey.focus();
+    });
+    els.rememberKey.addEventListener('change', saveKeyIfNeeded);
+    els.apiKey.addEventListener('change', saveKeyIfNeeded);
+
+    els.temperature.addEventListener('input', e => {
+      els.tempVal.textContent = e.target.value;
+    });
+
+    // Dropzone
+    function addFiles(files){
+      [...files].forEach(file => {
+        if(!file.type.startsWith('image/')) return;
+        if(file.size > 18 * 1024 * 1024){ // ~18MB guard
+          alert(`${file.name}: 파일이 큽니다 (18MB 초과).`);
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          imageList.push({name:file.name, type:file.type, dataUrl:reader.result, size:file.size});
+          renderThumbs();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+    function renderThumbs(){
+      els.thumbs.innerHTML = '';
+      imageList.forEach((img, idx) => {
+        const c = document.createElement('div'); c.className = 'thumb';
+        const im = document.createElement('img'); im.src = img.dataUrl; im.alt = img.name;
+        const b = document.createElement('button'); b.textContent = '삭제';
+        b.addEventListener('click', () => { imageList.splice(idx,1); renderThumbs(); });
+        c.append(im,b); els.thumbs.appendChild(c);
+      });
+    }
+    ['dragenter','dragover'].forEach(evt => {
+      els.dropzone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); els.dropzone.classList.add('drag');});
+    });
+    ['dragleave','drop'].forEach(evt => {
+      els.dropzone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); els.dropzone.classList.remove('drag');});
+    });
+    els.dropzone.addEventListener('drop', e => { addFiles(e.dataTransfer.files); });
+    els.dropzone.addEventListener('click', () => els.fileInput.click());
+    els.fileInput.addEventListener('change', e => addFiles(e.target.files));
+
+    // Clear chat
+    els.clearBtn.addEventListener('click', () => { els.chat.innerHTML=''; });
+
+    // Send buttons
+    els.sendBtn.addEventListener('click', handleSendFromLeft);
+    els.sendBtn2.addEventListener('click', handleSendFromBottom);
+    els.composer.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); handleSendFromBottom(); }});
+
+    function handleSendFromLeft(){
+      const text = (els.userPrompt.value || '').trim();
+      if(!text && imageList.length===0){ alert('유저 프롬프트를 입력하거나 이미지를 추가하세요.'); return; }
+      send(text);
+    }
+    function handleSendFromBottom(){
+      const text = (els.composer.value || '').trim();
+      if(!text && imageList.length===0){ alert('메시지를 입력하거나 이미지를 추가하세요.'); return; }
+      send(text, { clearComposer:true });
+    }
+
+    // ==== OpenAI Call (Chat Completions, multimodal) ====
+    async function send(userText, opts={}){
+      const key = els.apiKey.value.trim();
+      if(!key){ alert('API 키를 입력하세요.'); return; }
+
+      const sys = (els.systemPrompt.value || '').trim();
+      const model = els.model.value;
+      const temp = parseFloat(els.temperature.value);
+      const maxTok = parseInt(els.maxTokens.value,10);
+
+      // Render user bubble now (with thumbnails)
+      let userHtml = '';
+      if(userText) userHtml += `<div>${escapeHTML(userText)}</div>`;
+      if(imageList.length){
+        userHtml += '<div class="thumbs" style="margin-top:8px">' + imageList.map(i=>`<div class="thumb" style="width:70px;height:70px"><img src="${i.dataUrl}" alt="${escapeHTML(i.name)}"/></div>`).join('') + '</div>';
+      }
+      appendBubble('user', userHtml || '<em>이미지 전송</em>');
+
+      if(opts.clearComposer){ els.composer.value = ''; }
+
+      // Build messages (multimodal)
+      const contentParts = [];
+      if(userText){ contentParts.push({ type: 'text', text: userText }); }
+      imageList.forEach(img => contentParts.push({ type:'image_url', image_url: { url: img.dataUrl } }));
+
+      const messages = [];
+      if(sys){ messages.push({ role:'system', content: sys }); }
+      messages.push({ role:'user', content: contentParts.length ? contentParts : userText });
+
+      setBusy(true);
+      try{
+        const res = await fetch('https://api.openai.com/v1/chat/completions',{
+          method:'POST',
+          headers:{
+            'Content-Type':'application/json',
+            'Authorization':`Bearer ${key}`
+          },
+          body: JSON.stringify({
+            model,
+            messages,
+            temperature: isFinite(temp) ? temp : 1,
+            ...(isFinite(maxTok) ? { max_tokens: maxTok } : {})
+          })
+        });
+
+        if(!res.ok){
+          const txt = await res.text();
+          throw new Error(`HTTP ${res.status}: ${txt}`);
+        }
+        const data = await res.json();
+        const out = data?.choices?.[0]?.message?.content || '(응답 없음)';
+        appendBubble('assistant', `<div>${escapeHTML(out)}</div>`);
+      } catch(err){
+        console.error(err);
+        appendBubble('assistant', `<div style="color:#ffb4b4">오류: ${escapeHTML(String(err.message || err))}</div><div class="meta">브라우저 CORS 또는 모델/엔드포인트 제약일 수 있습니다. 서버 프록시 사용을 고려하세요.</div>`);
+      } finally { setBusy(false); imageList.length=0; renderThumbs(); }
+    }
+  </script>
+</body>
+</html>
