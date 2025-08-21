@@ -3,305 +3,273 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Split-View OpenAI Chat Playground</title>
+  <title>장재웅의 챗봇 — Rebuild v2 (Streaming + MathJax + Local Save)</title>
   <style>
-    :root{
-      --bg:#0b0e14; --panel:#11141b; --border:#1f2430; --muted:#97a1b0; --text:#e6edf3; --accent:#4f8cff;
-      --danger:#ff6363; --ok:#34d399; --warn:#fbbf24;
-    }
+    :root{ --panel:#ffffff; --border:#e5e7eb; --muted:#6b7280; --text:#111827; --accent:#3b82f6; --danger:#ef4444; }
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0; background:linear-gradient(180deg,#0b0e14 0%,#0d1117 100%); color:var(--text); font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"}
-    .app{display:flex; height:100vh; gap:0}
-    .left{width:420px; min-width:360px; max-width:520px; border-right:1px solid var(--border); background:var(--panel); padding:18px; overflow:auto}
-    .right{flex:1; display:flex; flex-direction:column}
-    h1{font-size:16px; margin:0 0 8px 0}
-    .sub{color:var(--muted); font-size:12px; margin-bottom:16px}
-    label{display:block; font-size:12px; color:#b7c1d1; margin:12px 0 6px}
-    input[type="text"], input[type="password"], input[type="number"], textarea, select{
-      width:100%; background:#0d1117; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; outline:none;
-    }
-    textarea{min-height:80px; resize:vertical}
-    .row{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center}
-    .small{font-size:12px; color:var(--muted)}
-    .btn{background:var(--accent); border:none; color:white; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600}
-    .btn[disabled]{opacity:.6; cursor:not-allowed}
-    .btn.secondary{background:#2a2f3a}
-    .btn.danger{background:var(--danger)}
-    .stack{display:flex; gap:8px; flex-wrap:wrap}
-    .switch{display:flex; align-items:center; gap:8px}
-    .switch input{accent-color:var(--accent)}
+    body{margin:0; background:#fff; color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans KR,"Apple Color Emoji","Segoe UI Emoji"}
+    .app{display:flex; height:100vh}
 
-    /* Right */
-    .dropzone{margin:14px; border:1px dashed #2b3340; border-radius:14px; padding:18px; text-align:center; color:var(--muted); background:#0d1117}
-    .dropzone.drag{border-color:var(--accent); color:#cfe0ff; background:#0f1524}
-    .thumbs{display:flex; gap:10px; flex-wrap:wrap; margin-top:10px}
-    .thumb{position:relative; width:90px; height:90px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#0b0f19}
+    /* LEFT */
+    .left{width:440px; min-width:340px; max-width:560px; border-right:1px solid var(--border); background:var(--panel); padding:16px; overflow:auto}
+    h1{font-size:16px; margin:0 0 8px}
+    label{display:block; font-size:12px; color:#374151; margin:10px 0 6px}
+    input,textarea,select{width:100%; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; outline:none}
+    textarea{min-height:86px; resize:vertical}
+    .row{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center}
+    .small{font-size:12px; color:#6b7280}
+    .btn{background:var(--accent); border:none; color:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600}
+    .btn.danger{background:var(--danger)}
+    /* LEFT — remember toggle (left-aligned, one-line) */
+    .switch{display:inline-flex; align-items:center; gap:8px; margin:6px 0 4px 0}
+    .switch input{width:16px; height:16px}
+    .switch .label{font-size:12px; color:#374151; white-space:nowrap}
+
+    /* RIGHT */
+    .right{flex:1; display:flex; flex-direction:column; min-width:0}
+    .chat{flex:1; overflow:auto; padding:0 12px 8px; display:flex; flex-direction:column}
+    .bubble{max-width:78ch; padding:12px 14px; margin:12px 0; border:1px solid var(--border); border-radius:14px; background:#f8fafc}
+    .bubble.user{background:#eef2ff; margin-left:auto}
+    .bubble .content{white-space:pre-wrap; word-wrap:break-word}
+    .attachments{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
+    .attachments img{width:120px; height:120px; object-fit:cover; border-radius:12px; border:1px solid var(--border)}
+
+    .dropzone{margin:8px 12px; border:1px dashed #cbd5e1; border-radius:14px; padding:12px; text-align:center; color:#475569; background:#f9fafb}
+    .dropzone.drag{border-color:var(--accent); color:#1e293b; background:#eef2ff}
+    .thumbs{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
+    .thumb{position:relative; width:90px; height:90px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff}
     .thumb img{width:100%; height:100%; object-fit:cover}
     .thumb button{position:absolute; top:4px; right:4px; background:#0008; border:none; color:#fff; border-radius:7px; font-size:11px; padding:4px 6px; cursor:pointer}
 
-    .chat{flex:1; overflow:auto; padding:0 14px 14px}
-    .bubble{max-width:70ch; padding:12px 14px; margin:14px 0; border:1px solid var(--border); border-radius:14px}
-    .user{background:#0f1524}
-    .assistant{background:#0f1419}
-    .meta{font-size:11px; color:var(--muted); margin-top:6px}
-
-    .composer{display:flex; gap:10px; padding:10px 14px; border-top:1px solid var(--border); background:var(--panel)}
-    .composer textarea{height:52px; min-height:52px}
-
-    .kvs{display:grid; grid-template-columns: 1fr 1fr; gap:8px}
-    .help{background:#0d1117; border:1px solid var(--border); border-radius:10px; padding:10px; color:#cdd6e3; font-size:12px}
-    code.inline{background:#0b0f19; padding:2px 6px; border-radius:6px; border:1px solid var(--border)}
-    .footer{font-size:11px; color:var(--muted); padding-top:8px}
-    @media (max-width: 920px){ .left{width:100%; max-width:none} .app{flex-direction:column}}
+    .composer{display:flex; gap:10px; padding:10px 12px; border-top:1px solid var(--border); background:#fff}
+    .composer textarea{height:56px; min-height:56px; flex:1}
   </style>
+
+  <!-- Markdown & Sanitize -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.5.7/dist/purify.min.js"></script>
+
+  <!-- MathJax v3: TeX → CHTML -->
+  <script>
+    // Ensure MathJax is fully ready before any typeset calls
+    window.__MATHJAX_READY__ = new Promise((resolve)=>{
+      window.MathJax = {
+        tex: {
+          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          displayMath: [['$$','$$'], ['\\[','\\]']],
+          processEscapes: true,
+          packages: {'[+]': ['base', 'ams']}
+        },
+        options: { renderActions: { addMenu: [] } },
+        startup: {
+          ready: () => { MathJax.startup.defaultReady(); resolve(); }
+        }
+      };
+    });
+  </script>
+  <script async id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
   <div class="app">
-    <!-- LEFT: Controls -->
     <aside class="left">
-      <h1>OpenAI Chat 설정</h1>
-      <div class="sub">브라우저에서 직접 OpenAI API 호출합니다. <span style="color:var(--warn)">API 키를 클라이언트에 저장/노출하는 방식은 보안상 위험</span>할 수 있습니다. 실제 제품에는 서버 프록시를 권장합니다.</div>
+      <h1>장재웅의 챗봇</h1>
 
       <label for="apiKey">API 키</label>
       <div class="row">
         <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
-        <button class="btn secondary" id="toggleKey">보기</button>
+        <button class="btn" id="toggleKey">보기</button>
       </div>
-      <div class="switch small"><input id="rememberKey" type="checkbox"/> <label for="rememberKey" class="small">브라우저에 저장 (localStorage, 비권장)</label></div>
+      <div class="switch">
+        <input id="rememberKey" type="checkbox" />
+        <span for="rememberKey" class="label">브라우저에 저장</span>
+      </div>
 
-      <label for="model">모델 (GPT-4 계열)</label>
+      <label for="model">모델</label>
       <select id="model">
-        <option value="gpt-4o" selected>gpt-4o (멀티모달)</option>
-        <option value="gpt-4o-mini">gpt-4o-mini (저비용)</option>
+        <option value="gpt-4o" selected>gpt-4o (권장)</option>
+        <option value="gpt-4o-mini">gpt-4o-mini</option>
         <option value="gpt-4.1">gpt-4.1</option>
         <option value="gpt-4.1-mini">gpt-4.1-mini</option>
       </select>
 
-      <div class="kvs">
-        <div>
-          <label for="temperature">temperature: <span id="tempVal" class="small">1.0</span></label>
-          <input id="temperature" type="range" min="0" max="2" step="0.01" value="1"/>
-        </div>
-        <div>
-          <label for="maxTokens">출력 토큰 상한 (max tokens)</label>
-          <input id="maxTokens" type="number" min="1" max="4096" placeholder="예: 400" />
-        </div>
-      </div>
+      <label for="temperature">temperature: <span id="tempVal">1.0</span></label>
+      <input id="temperature" type="range" min="0" max="2" step="0.01" value="1"/>
+
+      <label for="maxTokens">출력 토큰 상한 (max_output_tokens)</label>
+      <input id="maxTokens" type="number" min="1" max="8192" placeholder="예: 800" />
 
       <label for="systemPrompt">시스템 프롬프트</label>
-      <textarea id="systemPrompt" placeholder="역할/톤/규칙을 정의하세요. 예) 당신은 교과 개념을 설명하는 튜터입니다. 답변은 간결하고 예시를 포함합니다."></textarea>
+      <textarea id="systemPrompt" placeholder="예) 한국어·마크다운·LaTeX로 답변"></textarea>
 
-      <label for="userPrompt">유저 프롬프트 (왼쪽에서 작성해도 되고, 아래 채팅창에 직접 입력해도 됩니다)</label>
-      <textarea id="userPrompt" placeholder="질문 또는 요청을 입력"></textarea>
-
-      <div class="stack" style="margin-top:10px">
-        <button class="btn" id="sendBtn">전송</button>
-        <button class="btn secondary" id="clearBtn">채팅 초기화</button>
-      </div>
-
-      <div class="help" style="margin-top:14px">
-        <div style="font-weight:600; margin-bottom:6px">사용법</div>
-        <ol style="margin:0; padding-left:18px">
-          <li>API 키를 입력하고 필요하면 저장을 체크합니다.</li>
-          <li>모델/temperature/토큰을 설정합니다.</li>
-          <li>이미지는 오른쪽 영역에 드래그&드롭으로 추가합니다.</li>
-          <li>프롬프트를 입력하고 <b>전송</b>을 누릅니다.</li>
-        </ol>
-        <div class="footer">참고: 일부 모델/엔드포인트는 브라우저 CORS 정책에 따라 동작하지 않을 수 있습니다. 동작 문제가 있으면 서버 프록시를 사용하세요.</div>
-      </div>
+      <label for="userPrompt">유저 프롬프트</label>
+      <textarea id="userPrompt" placeholder="질문 또는 요청"></textarea>
     </aside>
 
-    <!-- RIGHT: Dropzone + Chat -->
     <main class="right">
+      <div id="chat" class="chat" aria-live="polite" aria-busy="false"></div>
+
       <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="이미지 업로드">
-        <div><strong>이미지 업로드</strong> — 드래그&드롭하거나 클릭해서 선택</div>
+        <div><strong>이미지 업로드</strong> — 드래그&드롭 또는 클릭</div>
         <input id="fileInput" type="file" accept="image/*" multiple hidden />
         <div id="thumbs" class="thumbs" aria-live="polite"></div>
       </div>
 
-      <div id="chat" class="chat" aria-live="polite" aria-busy="false"></div>
-
       <div class="composer">
-        <textarea id="composer" placeholder="여기에 질문을 입력... (또는 왼쪽 유저 프롬프트 사용)"></textarea>
-        <button class="btn" id="sendBtn2">전송</button>
+        <textarea id="composer" placeholder="여기에 메시지 입력 (Shift+Enter 줄바꿈)"></textarea>
+        <button class="btn" id="sendBtn">전송</button>
+        <button class="btn danger" id="stopBtn">중지</button>
+        <button class="btn" id="clearBtn">초기화</button>
       </div>
     </main>
   </div>
 
   <script>
-    // ==== State ====
     const els = {
-      apiKey: document.getElementById('apiKey'),
-      toggleKey: document.getElementById('toggleKey'),
-      rememberKey: document.getElementById('rememberKey'),
-      model: document.getElementById('model'),
-      temperature: document.getElementById('temperature'),
-      tempVal: document.getElementById('tempVal'),
-      maxTokens: document.getElementById('maxTokens'),
-      systemPrompt: document.getElementById('systemPrompt'),
-      userPrompt: document.getElementById('userPrompt'),
-      sendBtn: document.getElementById('sendBtn'),
-      sendBtn2: document.getElementById('sendBtn2'),
-      clearBtn: document.getElementById('clearBtn'),
-      dropzone: document.getElementById('dropzone'),
-      fileInput: document.getElementById('fileInput'),
-      thumbs: document.getElementById('thumbs'),
-      chat: document.getElementById('chat'),
-      composer: document.getElementById('composer'),
+      apiKey: document.getElementById('apiKey'), toggleKey: document.getElementById('toggleKey'), rememberKey: document.getElementById('rememberKey'),
+      model: document.getElementById('model'), temperature: document.getElementById('temperature'), tempVal: document.getElementById('tempVal'), maxTokens: document.getElementById('maxTokens'),
+      systemPrompt: document.getElementById('systemPrompt'), userPrompt: document.getElementById('userPrompt'),
+      chat: document.getElementById('chat'), composer: document.getElementById('composer'),
+      dropzone: document.getElementById('dropzone'), fileInput: document.getElementById('fileInput'), thumbs: document.getElementById('thumbs'),
+      sendBtn: document.getElementById('sendBtn'), stopBtn: document.getElementById('stopBtn'), clearBtn: document.getElementById('clearBtn'),
     };
 
-    const imageList = []; // {name, type, dataUrl, size}
+    let images = []; let aborter = null; let renderTimer = null;
 
-    // ==== Helpers ====
-    function saveKeyIfNeeded(){
-      if(els.rememberKey.checked){ localStorage.setItem('OPENAI_API_KEY', els.apiKey.value || ''); }
-      else { localStorage.removeItem('OPENAI_API_KEY'); }
-    }
-    function loadKey(){
-      const k = localStorage.getItem('OPENAI_API_KEY');
-      if(k){ els.apiKey.value = k; els.rememberKey.checked = true; }
-    }
-    function escapeHTML(s){
-      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
-    }
-    function appendBubble(role, html){
-      const div = document.createElement('div');
-      div.className = `bubble ${role}`;
-      div.innerHTML = html;
-      els.chat.appendChild(div);
-      els.chat.scrollTop = els.chat.scrollHeight;
-    }
-    function setBusy(v){
-      els.chat.setAttribute('aria-busy', v ? 'true':'false');
-      els.sendBtn.disabled = els.sendBtn2.disabled = !!v;
-    }
-
-    // ==== UI wiring ====
+    // ====== API 키 저장/복원 ======
+    function saveKeyIfNeeded(){ if(els.rememberKey.checked){ localStorage.setItem('OPENAI_API_KEY', els.apiKey.value||''); } else { localStorage.removeItem('OPENAI_API_KEY'); } }
+    function loadKey(){ const k=localStorage.getItem('OPENAI_API_KEY'); if(k){ els.apiKey.value=k; els.rememberKey.checked=true; } }
     loadKey();
 
-    els.toggleKey.addEventListener('click', () => {
-      els.apiKey.type = els.apiKey.type === 'password' ? 'text' : 'password';
-      els.apiKey.focus();
-    });
+    els.toggleKey.addEventListener('click', ()=>{ els.apiKey.type = els.apiKey.type==='password' ? 'text' : 'password'; els.apiKey.focus(); });
     els.rememberKey.addEventListener('change', saveKeyIfNeeded);
     els.apiKey.addEventListener('change', saveKeyIfNeeded);
 
-    els.temperature.addEventListener('input', e => {
-      els.tempVal.textContent = e.target.value;
-    });
+    els.temperature.addEventListener('input', e=> els.tempVal.textContent = e.target.value);
 
-    // Dropzone
-    function addFiles(files){
-      [...files].forEach(file => {
-        if(!file.type.startsWith('image/')) return;
-        if(file.size > 18 * 1024 * 1024){ // ~18MB guard
-          alert(`${file.name}: 파일이 큽니다 (18MB 초과).`);
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          imageList.push({name:file.name, type:file.type, dataUrl:reader.result, size:file.size});
-          renderThumbs();
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-    function renderThumbs(){
-      els.thumbs.innerHTML = '';
-      imageList.forEach((img, idx) => {
-        const c = document.createElement('div'); c.className = 'thumb';
-        const im = document.createElement('img'); im.src = img.dataUrl; im.alt = img.name;
-        const b = document.createElement('button'); b.textContent = '삭제';
-        b.addEventListener('click', () => { imageList.splice(idx,1); renderThumbs(); });
-        c.append(im,b); els.thumbs.appendChild(c);
-      });
-    }
-    ['dragenter','dragover'].forEach(evt => {
-      els.dropzone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); els.dropzone.classList.add('drag');});
-    });
-    ['dragleave','drop'].forEach(evt => {
-      els.dropzone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); els.dropzone.classList.remove('drag');});
-    });
-    els.dropzone.addEventListener('drop', e => { addFiles(e.dataTransfer.files); });
-    els.dropzone.addEventListener('click', () => els.fileInput.click());
-    els.fileInput.addEventListener('change', e => addFiles(e.target.files));
+    // ---------- Markdown helper ----------
+    function mdToHtml(markdown){ return DOMPurify.sanitize(marked.parse(markdown)); }
 
-    // Clear chat
-    els.clearBtn.addEventListener('click', () => { els.chat.innerHTML=''; });
-
-    // Send buttons
-    els.sendBtn.addEventListener('click', handleSendFromLeft);
-    els.sendBtn2.addEventListener('click', handleSendFromBottom);
-    els.composer.addEventListener('keydown', (e)=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); handleSendFromBottom(); }});
-
-    function handleSendFromLeft(){
-      const text = (els.userPrompt.value || '').trim();
-      if(!text && imageList.length===0){ alert('유저 프롬프트를 입력하거나 이미지를 추가하세요.'); return; }
-      send(text);
-    }
-    function handleSendFromBottom(){
-      const text = (els.composer.value || '').trim();
-      if(!text && imageList.length===0){ alert('메시지를 입력하거나 이미지를 추가하세요.'); return; }
-      send(text, { clearComposer:true });
-    }
-
-    // ==== OpenAI Call (Chat Completions, multimodal) ====
-    async function send(userText, opts={}){
-      const key = els.apiKey.value.trim();
-      if(!key){ alert('API 키를 입력하세요.'); return; }
-
-      const sys = (els.systemPrompt.value || '').trim();
-      const model = els.model.value;
-      const temp = parseFloat(els.temperature.value);
-      const maxTok = parseInt(els.maxTokens.value,10);
-
-      // Render user bubble now (with thumbnails)
-      let userHtml = '';
-      if(userText) userHtml += `<div>${escapeHTML(userText)}</div>`;
-      if(imageList.length){
-        userHtml += '<div class="thumbs" style="margin-top:8px">' + imageList.map(i=>`<div class="thumb" style="width:70px;height:70px"><img src="${i.dataUrl}" alt="${escapeHTML(i.name)}"/></div>`).join('') + '</div>';
+    // ---------- MathJax helper ----------
+    function typeset(el){
+      if(window.__MATHJAX_READY__){
+        window.__MATHJAX_READY__.then(()=>{ if(window.MathJax && MathJax.typesetPromise){ MathJax.typesetClear([el]); MathJax.typesetPromise([el]); } });
       }
-      appendBubble('user', userHtml || '<em>이미지 전송</em>');
+    }
 
-      if(opts.clearComposer){ els.composer.value = ''; }
+    // ---------- Protect existing math, then safely canonicalize Unicode √ on the rest ----------
+    function protectMath(md){
+      const slots=[]; let i=0;
+      function put(s){ const k=`@@SLOT${i++}@@`; slots.push(s); return k; }
+      // $$...$$, \[...\], \(...\)
+      md = md.replace(/\$\$([\s\S]*?)\$\$/g,(_,p)=> put(`$$${p}$$`));
+      md = md.replace(/\\\[([\s\S]*?)\\\]/g,(_,p)=> put(`\\[${p}\\]`));
+      md = md.replace(/\\\(([\s\S]*?)\\\)/g,(_,p)=> put(`\\(${p}\\)`));
+      return { text: md, slots };
+    }
+    function unprotectMath(text, slots){ return text.replace(/@@SLOT(\d+)@@/g,(_,i)=> slots[Number(i)]); }
 
-      // Build messages (multimodal)
-      const contentParts = [];
-      if(userText){ contentParts.push({ type: 'text', text: userText }); }
-      imageList.forEach(img => contentParts.push({ type:'image_url', image_url: { url: img.dataUrl } }));
+    function supersAndSymbols(s){
+      const map = { '·':'\\cdot ', '⋅':'\\cdot ', '•':'\\cdot ', '−':'-', '–':'-', '—':'-', '÷':'/' };
+      s = s.replace(/[·⋅•−–—÷]/g, ch=>map[ch]);
+      const sd = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','ⁿ':'n'};
+      s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ]/g, m=>`^{${sd[m]}}`);
+      return s;
+    }
 
-      const messages = [];
-      if(sys){ messages.push({ role:'system', content: sys }); }
-      messages.push({ role:'user', content: contentParts.length ? contentParts : userText });
+    function canonicalizeRootsStrict(s){
+      // glue: "√\n 3" → "√3"
+      s = s.replace(/√[ \t]*(?:\r?\n[ \t]*)+/g, '√');
+      s = supersAndSymbols(s);
+      const pairs={ '(':')','{':'}','[':']','⟮':'⟯','（':'）','［':'］' };
+      function readBracket(str,i){ const open=str[i], close=pairs[open]; let d=1,j=i+1; for(; j<str.length; j++){ const c=str[j]; if(c===open) d++; else if(c===close){ d--; if(d===0) break; } } if(d!==0) return [null,i]; return [str.slice(i+1,j), j+1]; }
+      const isWord = ch => /[\p{L}\p{N}_π]/u.test(ch);
+      function readSingleToken(str,i){ let k=i; if(!isWord(str[k])) return [null,i]; while(k<str.length && isWord(str[k])) k++; while(k<str.length){ if(str[k]==='^' || str[k]==='_'){ k++; if(k>=str.length) break; if(str[k]==='{'){ const [inner,j2]=readBracket(str,k); if(inner==null) return [null,i]; k=j2; } else { let start=k; while(k<str.length && isWord(str[k])) k++; if(start===k) return [null,i]; } continue; } break; } return [str.slice(i,k), k]; }
+      let out='';
+      for(let i=0;i<s.length;i++){
+        if(s[i] !== '√'){ out+=s[i]; continue; }
+        let j=i+1; while(j<s.length && /\s/.test(s[j])) j++;
+        // optional index [n]
+        let index=null; if(s[j]==='[' || s[j]==='［'){ const [idx,j2]=readBracket(s,j); if(idx==null){ out+='√'; continue; } index=idx.trim(); j=j2; while(j<s.length && /\s/.test(s[j])) j++; }
+        let rad=null;
+        if(pairs[s[j]]){ const [inner,j2]=readBracket(s,j); if(inner!=null){ rad=inner.trim(); j=j2; } }
+        else{ const [tok,j2]=readSingleToken(s,j); rad=tok; j=j2; }
+        if(!rad){ out+='√'; i=j-1; continue; }
+        out += `$\\sqrt${index?`[${index}]`:''}{${rad}}$`; i=j-1;
+      }
+      return out;
+    }
 
-      setBusy(true);
+    function preprocessMarkdown(md){
+      const {text, slots} = protectMath(md);
+      const processed = text.split(/\r?\n/).map(line=> canonicalizeRootsStrict(line)).join('\n');
+      return unprotectMath(processed, slots);
+    }
+
+    function appendBubble(role, initialMarkdown='', opts={}){
+      const div=document.createElement('div'); div.className=`bubble ${role}`;
+      const content=document.createElement('div'); content.className='content md'; div.appendChild(content);
+      els.chat.appendChild(div); els.chat.scrollTop=els.chat.scrollHeight;
+      renderMarkdown(div, initialMarkdown);
+      if(role==='user' && opts.images && opts.images.length){ const at=document.createElement('div'); at.className='attachments'; for(const img of opts.images){ const im=document.createElement('img'); im.src=img.dataUrl; im.alt=img.name||'image'; at.appendChild(im);} div.appendChild(at); }
+      return div;
+    }
+
+    function setBusy(v){ els.chat.setAttribute('aria-busy', v? 'true':'false'); els.sendBtn.disabled=!!v; els.stopBtn.disabled=!v; }
+
+    function renderMarkdown(bubble, markdown){
+      const contentEl=bubble.querySelector('.content');
+      const pre=preprocessMarkdown(markdown||'');
+      contentEl.innerHTML = mdToHtml(pre);
+      if(renderTimer) clearTimeout(renderTimer);
+      renderTimer = setTimeout(()=> typeset(contentEl), 200);
+    }
+
+    // ---------- SSE parsing ----------
+    function makeSSEParser(onEvent){ let buffer=''; return (chunk)=>{ buffer+=chunk; const parts=buffer.split(/\n\n/); buffer=parts.pop(); for(const part of parts){ const line=part.split(/\n/).find(l=>l.startsWith('data:')); if(!line) continue; const s=line.replace(/^data:\s*/, ''); if(s==='[DONE]'){ onEvent({type:'done'}); continue;} try{ onEvent(JSON.parse(s)); }catch(_){} } }; }
+    function extractDelta(evt){ if(typeof evt?.type==='string'){ if(evt.type.includes('output_text.delta')&&typeof evt.delta==='string') return evt.delta; if(evt.type.includes('response.delta')&&typeof evt.delta?.output_text==='string') return evt.delta.output_text; if(evt.type.includes('message.delta')){ const t=evt?.delta?.content?.[0]?.text; if(typeof t==='string') return t; } } const cc=evt?.choices?.[0]; if(cc?.delta?.content) return cc.delta.content; }
+
+    // ---------- Image handling ----------
+    async function downscaleDataUrl(dataUrl, maxSide=1600, quality=0.92){ return new Promise((resolve)=>{ const img=new Image(); img.onload=()=>{ let {width,height}=img; if(Math.max(width,height)>maxSide){ const s=maxSide/Math.max(width,height); width=Math.round(width*s); height=Math.round(height*s);} const c=document.createElement('canvas'); c.width=width; c.height=height; const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,width,height); resolve(c.toDataURL('image/jpeg', quality));}; img.onerror=()=>resolve(dataUrl); img.src=dataUrl; }); }
+
+    function addFiles(files){ [...files].forEach(file=>{ if(!file.type.startsWith('image/')) return; if(file.size>28*1024*1024){ alert(`${file.name}: 28MB 초과입니다.`); return; } const reader=new FileReader(); reader.onload=async()=>{ const compressed=await downscaleDataUrl(reader.result,1600,0.92); images.push({name:file.name,type:'image/jpeg',dataUrl:compressed,size:file.size}); renderThumbs(); }; reader.readAsDataURL(file); }); }
+    function renderThumbs(){ els.thumbs.innerHTML=''; images.forEach((img,idx)=>{ const c=document.createElement('div'); c.className='thumb'; const im=document.createElement('img'); im.src=img.dataUrl; im.alt=img.name; const b=document.createElement('button'); b.textContent='삭제'; b.addEventListener('click',()=>{ images.splice(idx,1); renderThumbs(); }); c.append(im,b); els.thumbs.appendChild(c); }); }
+    ['dragenter','dragover'].forEach(evt=>{ els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.add('drag'); }); });
+    ['dragleave','drop'].forEach(evt=>{ els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.remove('drag'); }); });
+    els.dropzone.addEventListener('drop', e=> addFiles(e.dataTransfer.files));
+    els.dropzone.addEventListener('click', ()=> els.fileInput.click());
+    els.fileInput.addEventListener('change', e=> addFiles(e.target.files));
+
+    els.clearBtn.addEventListener('click', ()=>{ els.chat.innerHTML=''; images=[]; renderThumbs(); });
+    els.stopBtn.addEventListener('click', ()=>{ if(aborter){ aborter.abort(); }});
+
+    els.sendBtn.addEventListener('click', sendFromBottom);
+    els.composer.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendFromBottom(); } });
+
+    function sendFromBottom(){ const t=(els.composer.value||els.userPrompt.value||'').trim(); if(!t && images.length===0){ alert('메시지 입력 또는 이미지 추가가 필요합니다.'); return; } send(t,{clearComposer:true}); }
+
+    // ---------- OpenAI Responses API (Streaming) ----------
+    async function send(userText, opts={}){
+      const key=els.apiKey.value.trim(); if(!key){ alert('API 키를 입력하세요.'); return; }
+      const sys=(els.systemPrompt.value||'').trim(); const model=els.model.value; const temp=parseFloat(els.temperature.value); const maxTok=parseInt(els.maxTokens.value,10);
+
+      // echo user bubble
+      appendBubble('user', userText || (images.length? '' : ''), {images}); if(opts.clearComposer){ els.composer.value=''; }
+
+      const content=[]; if(userText){ content.push({type:'input_text', text:userText}); } for(const img of images){ content.push({type:'input_image', image_url: img.dataUrl}); }
+      const input=[]; if(sys){ input.push({role:'system', content:[{type:'input_text', text:sys}]}); } input.push({role:'user', content});
+
+      const bubble=appendBubble('assistant',''); let buffer='';
+      const schedule=()=>{ if(renderTimer) clearTimeout(renderTimer); renderTimer=setTimeout(()=>{ renderMarkdown(bubble, buffer); }, 180); };
+
+      images=[]; renderThumbs(); setBusy(true); aborter=new AbortController();
       try{
-        const res = await fetch('https://api.openai.com/v1/chat/completions',{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'Authorization':`Bearer ${key}`
-          },
-          body: JSON.stringify({
-            model,
-            messages,
-            temperature: isFinite(temp) ? temp : 1,
-            ...(isFinite(maxTok) ? { max_tokens: maxTok } : {})
-          })
-        });
-
-        if(!res.ok){
-          const txt = await res.text();
-          throw new Error(`HTTP ${res.status}: ${txt}`);
-        }
-        const data = await res.json();
-        const out = data?.choices?.[0]?.message?.content || '(응답 없음)';
-        appendBubble('assistant', `<div>${escapeHTML(out)}</div>`);
-      } catch(err){
-        console.error(err);
-        appendBubble('assistant', `<div style="color:#ffb4b4">오류: ${escapeHTML(String(err.message || err))}</div><div class="meta">브라우저 CORS 또는 모델/엔드포인트 제약일 수 있습니다. 서버 프록시 사용을 고려하세요.</div>`);
-      } finally { setBusy(false); imageList.length=0; renderThumbs(); }
+        const res=await fetch('https://api.openai.com/v1/responses',{ method:'POST', signal:aborter.signal, headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${key}`, 'Accept-Language':'ko-KR' }, body: JSON.stringify({ model, input, temperature: isFinite(temp)? temp:1, ...(isFinite(maxTok)? {max_output_tokens:maxTok}:{}), stream:true }) });
+        if(!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+        const reader=res.body.getReader(); const decoder=new TextDecoder('utf-8'); const onChunk=makeSSEParser((evt)=>{ if(evt?.type==='done') return; const d=extractDelta(evt); if(typeof d==='string'){ buffer+=d; schedule(); } });
+        while(true){ const {value, done}=await reader.read(); if(done) break; onChunk(decoder.decode(value,{stream:true})); }
+      }catch(err){ buffer += `\n\n🚫 **오류**\n\n${String(err.message||err)}`; }
+      finally{ setBusy(false); aborter=null; renderMarkdown(bubble, buffer); }
     }
   </script>
 </body>
