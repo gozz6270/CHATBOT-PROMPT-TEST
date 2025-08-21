@@ -3,30 +3,28 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>장재웅의 챗봇 — Rebuild v2 (Streaming + MathJax + Local Save)</title>
+  <title>장재웅의 챗봇 — Clean Build (Streaming + MathJax Fixed)</title>
   <style>
-    :root{ --panel:#ffffff; --border:#e5e7eb; --muted:#6b7280; --text:#111827; --accent:#3b82f6; --danger:#ef4444; }
+    :root{ --panel:#ffffff; --border:#e5e7eb; --text:#111827; --accent:#3b82f6; --danger:#ef4444; }
     *{box-sizing:border-box}
     html,body{height:100%}
     body{margin:0; background:#fff; color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans KR,"Apple Color Emoji","Segoe UI Emoji"}
     .app{display:flex; height:100vh}
 
-    /* LEFT */
-    .left{width:440px; min-width:340px; max-width:560px; border-right:1px solid var(--border); background:var(--panel); padding:16px; overflow:auto}
+    /* LEFT: 기존 UI 그대로 */
+    .left{width:440px; min-width:340px; max-width:560px; border-right:1px solid var(--border); background:#fff; padding:16px; overflow:auto}
     h1{font-size:16px; margin:0 0 8px}
     label{display:block; font-size:12px; color:#374151; margin:10px 0 6px}
     input,textarea,select{width:100%; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; outline:none}
     textarea{min-height:86px; resize:vertical}
     .row{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center}
-    .small{font-size:12px; color:#6b7280}
     .btn{background:var(--accent); border:none; color:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600}
     .btn.danger{background:var(--danger)}
-    /* LEFT — remember toggle (left-aligned, one-line) */
     .switch{display:inline-flex; align-items:center; gap:8px; margin:6px 0 4px 0}
     .switch input{width:16px; height:16px}
-    .switch .label{font-size:12px; color:#374151; white-space:nowrap}
+    .switch .label{font-size:12px; color:#374151}
 
-    /* RIGHT */
+    /* RIGHT: 기존 UI 그대로 */
     .right{flex:1; display:flex; flex-direction:column; min-width:0}
     .chat{flex:1; overflow:auto; padding:0 12px 8px; display:flex; flex-direction:column}
     .bubble{max-width:78ch; padding:12px 14px; margin:12px 0; border:1px solid var(--border); border-radius:14px; background:#f8fafc}
@@ -36,7 +34,6 @@
     .attachments img{width:120px; height:120px; object-fit:cover; border-radius:12px; border:1px solid var(--border)}
 
     .dropzone{margin:8px 12px; border:1px dashed #cbd5e1; border-radius:14px; padding:12px; text-align:center; color:#475569; background:#f9fafb}
-    .dropzone.drag{border-color:var(--accent); color:#1e293b; background:#eef2ff}
     .thumbs{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
     .thumb{position:relative; width:90px; height:90px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff}
     .thumb img{width:100%; height:100%; object-fit:cover}
@@ -50,25 +47,22 @@
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dompurify@2.5.7/dist/purify.min.js"></script>
 
-  <!-- MathJax v3: TeX → CHTML -->
+  <!-- MathJax v3: 정확한 구분자(\(\), \[\]) + ready gate -->
   <script>
-    // Ensure MathJax is fully ready before any typeset calls
     window.__MATHJAX_READY__ = new Promise((resolve)=>{
       window.MathJax = {
         tex: {
-          inlineMath: [['$', '$'], ['\\(', '\\)']],
+          inlineMath: [['$','$'], ['\\(','\\)']],
           displayMath: [['$$','$$'], ['\\[','\\]']],
           processEscapes: true,
-          packages: {'[+]': ['base', 'ams']}
+          packages: {'[+]':['base','ams']}
         },
         options: { renderActions: { addMenu: [] } },
-        startup: {
-          ready: () => { MathJax.startup.defaultReady(); resolve(); }
-        }
+        startup: { ready: ()=>{ MathJax.startup.defaultReady(); resolve(); } }
       };
     });
   </script>
-  <script async id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
   <div class="app">
@@ -82,7 +76,7 @@
       </div>
       <div class="switch">
         <input id="rememberKey" type="checkbox" />
-        <span for="rememberKey" class="label">브라우저에 저장</span>
+        <span class="label">브라우저에 저장</span>
       </div>
 
       <label for="model">모델</label>
@@ -134,142 +128,124 @@
       sendBtn: document.getElementById('sendBtn'), stopBtn: document.getElementById('stopBtn'), clearBtn: document.getElementById('clearBtn'),
     };
 
-    let images = []; let aborter = null; let renderTimer = null;
+    let images = []; let aborter=null; let renderTimer=null;
 
-    // ====== API 키 저장/복원 ======
+    // Local save
     function saveKeyIfNeeded(){ if(els.rememberKey.checked){ localStorage.setItem('OPENAI_API_KEY', els.apiKey.value||''); } else { localStorage.removeItem('OPENAI_API_KEY'); } }
     function loadKey(){ const k=localStorage.getItem('OPENAI_API_KEY'); if(k){ els.apiKey.value=k; els.rememberKey.checked=true; } }
     loadKey();
-
     els.toggleKey.addEventListener('click', ()=>{ els.apiKey.type = els.apiKey.type==='password' ? 'text' : 'password'; els.apiKey.focus(); });
     els.rememberKey.addEventListener('change', saveKeyIfNeeded);
     els.apiKey.addEventListener('change', saveKeyIfNeeded);
 
-    els.temperature.addEventListener('input', e=> els.tempVal.textContent = e.target.value);
+    els.temperature.addEventListener('input', e=> els.tempVal.textContent=e.target.value);
 
-    // ---------- Markdown helper ----------
+    // Markdown
     function mdToHtml(markdown){ return DOMPurify.sanitize(marked.parse(markdown)); }
 
-    // ---------- MathJax helper ----------
-    function typeset(el){
-      if(window.__MATHJAX_READY__){
-        window.__MATHJAX_READY__.then(()=>{ if(window.MathJax && MathJax.typesetPromise){ MathJax.typesetClear([el]); MathJax.typesetPromise([el]); } });
-      }
+    // MathJax typeset helper
+    function typeset(el){ if(window.__MATHJAX_READY__) window.__MATHJAX_READY__.then(()=>{ if(window.MathJax?.typesetPromise){ MathJax.typesetClear([el]); MathJax.typesetPromise([el]); } }); }
+
+    // --- 수식 마스킹 → 비수식 구간 정규화(√ 등) → 마크다운 → 복원 → typeset ---
+    function maskMath(src){
+      let text=src; const tokens=[]; let i=0;
+      // fenced code (` ```math`, ` ```latex`, ` ```tex` )
+      const lines=text.split(/\r?\n/); let out=[], inFence=false, lang='', buf=[]; const open=/^```\s*([^`\s]*)\s*$/, close=/^```\s*$/;
+      function flush(){ const content=buf.join('\n'); const k=`@@M${i++}@@`; if(['math','latex','tex'].includes((lang||'').toLowerCase())){ tokens.push({s:`$$${content}$$`}); out.push(k);} else { out.push('```'+lang); out.push(content); out.push('```'); } buf=[]; lang=''; inFence=false; }
+      for(const ln of lines){ if(!inFence && open.test(ln)){ inFence=true; lang=ln.replace(open,'$1'); buf=[]; continue;} if(inFence && close.test(ln)){ flush(); continue;} if(inFence){ buf.push(ln); continue;} out.push(ln);} if(inFence) flush(); text=out.join('\n');
+      // display
+      text=text.replace(/\\\[([\s\S]*?)\\\]/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`\\[${p}\\]`}); return k; });
+      text=text.replace(/\$\$([\s\S]*?)\$\$/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`$$${p}$$`}); return k; });
+      // inline
+      text=text.replace(/\\\(([\s\S]*?)\\\)/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`\\(${p}\\)`}); return k; });
+      text=text.replace(/\$(?!\$)([^\n$]+?)\$(?!\$)/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`$${p}$`}); return k; });
+      return {text, tokens};
     }
 
-    // ---------- Protect existing math, then safely canonicalize Unicode √ on the rest ----------
-    function protectMath(md){
-      const slots=[]; let i=0;
-      function put(s){ const k=`@@SLOT${i++}@@`; slots.push(s); return k; }
-      // $$...$$, \[...\], \(...\)
-      md = md.replace(/\$\$([\s\S]*?)\$\$/g,(_,p)=> put(`$$${p}$$`));
-      md = md.replace(/\\\[([\s\S]*?)\\\]/g,(_,p)=> put(`\\[${p}\\]`));
-      md = md.replace(/\\\(([\s\S]*?)\\\)/g,(_,p)=> put(`\\(${p}\\)`));
-      return { text: md, slots };
-    }
-    function unprotectMath(text, slots){ return text.replace(/@@SLOT(\d+)@@/g,(_,i)=> slots[Number(i)]); }
-
-    function supersAndSymbols(s){
-      const map = { '·':'\\cdot ', '⋅':'\\cdot ', '•':'\\cdot ', '−':'-', '–':'-', '—':'-', '÷':'/' };
-      s = s.replace(/[·⋅•−–—÷]/g, ch=>map[ch]);
-      const sd = {'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','ⁿ':'n'};
-      s = s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ]/g, m=>`^{${sd[m]}}`);
-      return s;
-    }
+    function supersAndSymbols(s){ const map={'·':'\\cdot ','⋅':'\\cdot ','•':'\\cdot ','−':'-','–':'-','—':'-','÷':'/'}; s=s.replace(/[·⋅•−–—÷]/g,ch=>map[ch]); const sd={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','ⁿ':'n'}; return s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ]/g,m=>`^{${sd[m]}}`); }
 
     function canonicalizeRootsStrict(s){
-      // glue: "√\n 3" → "√3"
-      s = s.replace(/√[ \t]*(?:\r?\n[ \t]*)+/g, '√');
-      s = supersAndSymbols(s);
-      const pairs={ '(':')','{':'}','[':']','⟮':'⟯','（':'）','［':'］' };
-      function readBracket(str,i){ const open=str[i], close=pairs[open]; let d=1,j=i+1; for(; j<str.length; j++){ const c=str[j]; if(c===open) d++; else if(c===close){ d--; if(d===0) break; } } if(d!==0) return [null,i]; return [str.slice(i+1,j), j+1]; }
-      const isWord = ch => /[\p{L}\p{N}_π]/u.test(ch);
-      function readSingleToken(str,i){ let k=i; if(!isWord(str[k])) return [null,i]; while(k<str.length && isWord(str[k])) k++; while(k<str.length){ if(str[k]==='^' || str[k]==='_'){ k++; if(k>=str.length) break; if(str[k]==='{'){ const [inner,j2]=readBracket(str,k); if(inner==null) return [null,i]; k=j2; } else { let start=k; while(k<str.length && isWord(str[k])) k++; if(start===k) return [null,i]; } continue; } break; } return [str.slice(i,k), k]; }
+      s=s.replace(/√[ \t]*(?:\r?\n[ \t]*)+/g,'√'); s=supersAndSymbols(s);
+      const pairs={'(' :')','{':'}','[':']','⟮':'⟯','（':'）','［':'］'};
+      const isWord = ch=>/[\p{L}\p{N}_π]/u.test(ch);
+      function readBracket(str,i){ const open=str[i], close=pairs[open]; let d=1, j=i+1; for(; j<str.length; j++){ const c=str[j]; if(c===open) d++; else if(c===close){ d--; if(d===0) break; } } if(d!==0) return [null,i]; return [str.slice(i+1,j), j+1]; }
+      function readSingleToken(str,i){ let k=i; if(!isWord(str[k])) return [null,i]; while(k<str.length&&isWord(str[k])) k++; while(k<str.length){ if(str[k]==='^'||str[k]==='_'){ k++; if(k>=str.length) break; if(str[k]==='{'){ const [inner,j2]=readBracket(str,k); if(inner==null) return [null,i]; k=j2; } else { let st=k; while(k<str.length&&isWord(str[k])) k++; if(st===k) return [null,i]; } continue;} break;} return [str.slice(i,k),k]; }
       let out='';
       for(let i=0;i<s.length;i++){
-        if(s[i] !== '√'){ out+=s[i]; continue; }
+        if(s[i]!== '√'){ out+=s[i]; continue; }
         let j=i+1; while(j<s.length && /\s/.test(s[j])) j++;
-        // optional index [n]
-        let index=null; if(s[j]==='[' || s[j]==='［'){ const [idx,j2]=readBracket(s,j); if(idx==null){ out+='√'; continue; } index=idx.trim(); j=j2; while(j<s.length && /\s/.test(s[j])) j++; }
-        let rad=null;
-        if(pairs[s[j]]){ const [inner,j2]=readBracket(s,j); if(inner!=null){ rad=inner.trim(); j=j2; } }
-        else{ const [tok,j2]=readSingleToken(s,j); rad=tok; j=j2; }
+        let index=null; if(s[j]==='['||s[j]==='［'){ const [idx,j2]=readBracket(s,j); if(idx==null){ out+='√'; continue;} index=idx.trim(); j=j2; while(j<s.length && /\s/.test(s[j])) j++; }
+        let rad=null; if(pairs[s[j]]){ const [inner,j2]=readBracket(s,j); if(inner!=null){ rad=inner.trim(); j=j2; } } else { const [tok,j2]=readSingleToken(s,j); rad=tok; j=j2; }
         if(!rad){ out+='√'; i=j-1; continue; }
         out += `$\\sqrt${index?`[${index}]`:''}{${rad}}$`; i=j-1;
       }
       return out;
     }
 
-    function preprocessMarkdown(md){
-      const {text, slots} = protectMath(md);
-      const processed = text.split(/\r?\n/).map(line=> canonicalizeRootsStrict(line)).join('\n');
-      return unprotectMath(processed, slots);
+    function renderMarkdownAndMath(bubble, markdown){
+      const contentEl=bubble.querySelector('.content');
+      const masked=maskMath(markdown||'');
+      const nonMath = masked.text.split(/\r?\n/).map(canonicalizeRootsStrict).join('\n');
+      let html = mdToHtml(nonMath);
+      html = html.replace(/@@M(\d+)@@/g,(m,i)=>`<span class="math-holder" data-i="${i}"></span>`);
+      contentEl.innerHTML = html;
+      const holders = contentEl.querySelectorAll('.math-holder');
+      holders.forEach(h=>{ const i=Number(h.getAttribute('data-i')); const obj=masked.tokens[i]; if(!obj) return; h.textContent = obj.s; });
+      typeset(contentEl);
     }
 
     function appendBubble(role, initialMarkdown='', opts={}){
       const div=document.createElement('div'); div.className=`bubble ${role}`;
-      const content=document.createElement('div'); content.className='content md'; div.appendChild(content);
+      const content=document.createElement('div'); content.className='content'; div.appendChild(content);
       els.chat.appendChild(div); els.chat.scrollTop=els.chat.scrollHeight;
-      renderMarkdown(div, initialMarkdown);
-      if(role==='user' && opts.images && opts.images.length){ const at=document.createElement('div'); at.className='attachments'; for(const img of opts.images){ const im=document.createElement('img'); im.src=img.dataUrl; im.alt=img.name||'image'; at.appendChild(im);} div.appendChild(at); }
+      renderMarkdownAndMath(div, initialMarkdown);
+      if(role==='user' && opts.images?.length){ const at=document.createElement('div'); at.className='attachments'; for(const img of opts.images){ const im=document.createElement('img'); im.src=img.dataUrl; im.alt=img.name||'image'; at.appendChild(im);} div.appendChild(at); }
       return div;
     }
 
     function setBusy(v){ els.chat.setAttribute('aria-busy', v? 'true':'false'); els.sendBtn.disabled=!!v; els.stopBtn.disabled=!v; }
 
-    function renderMarkdown(bubble, markdown){
-      const contentEl=bubble.querySelector('.content');
-      const pre=preprocessMarkdown(markdown||'');
-      contentEl.innerHTML = mdToHtml(pre);
-      if(renderTimer) clearTimeout(renderTimer);
-      renderTimer = setTimeout(()=> typeset(contentEl), 200);
-    }
-
-    // ---------- SSE parsing ----------
+    // SSE helpers
     function makeSSEParser(onEvent){ let buffer=''; return (chunk)=>{ buffer+=chunk; const parts=buffer.split(/\n\n/); buffer=parts.pop(); for(const part of parts){ const line=part.split(/\n/).find(l=>l.startsWith('data:')); if(!line) continue; const s=line.replace(/^data:\s*/, ''); if(s==='[DONE]'){ onEvent({type:'done'}); continue;} try{ onEvent(JSON.parse(s)); }catch(_){} } }; }
     function extractDelta(evt){ if(typeof evt?.type==='string'){ if(evt.type.includes('output_text.delta')&&typeof evt.delta==='string') return evt.delta; if(evt.type.includes('response.delta')&&typeof evt.delta?.output_text==='string') return evt.delta.output_text; if(evt.type.includes('message.delta')){ const t=evt?.delta?.content?.[0]?.text; if(typeof t==='string') return t; } } const cc=evt?.choices?.[0]; if(cc?.delta?.content) return cc.delta.content; }
 
-    // ---------- Image handling ----------
-    async function downscaleDataUrl(dataUrl, maxSide=1600, quality=0.92){ return new Promise((resolve)=>{ const img=new Image(); img.onload=()=>{ let {width,height}=img; if(Math.max(width,height)>maxSide){ const s=maxSide/Math.max(width,height); width=Math.round(width*s); height=Math.round(height*s);} const c=document.createElement('canvas'); c.width=width; c.height=height; const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,width,height); resolve(c.toDataURL('image/jpeg', quality));}; img.onerror=()=>resolve(dataUrl); img.src=dataUrl; }); }
-
+    // Images
+    async function downscaleDataUrl(dataUrl, maxSide=1600, quality=0.92){ return new Promise((resolve)=>{ const img=new Image(); img.onload=()=>{ let {width,height}=img; if(Math.max(width,height)>maxSide){ const s=maxSide/Math.max(width,height); width=Math.round(width*s); height=Math.round(height*s);} const c=document.createElement('canvas'); c.width=width; c.height=height; c.getContext('2d').drawImage(img,0,0,width,height); resolve(c.toDataURL('image/jpeg', quality));}; img.onerror=()=>resolve(dataUrl); img.src=dataUrl; }); }
     function addFiles(files){ [...files].forEach(file=>{ if(!file.type.startsWith('image/')) return; if(file.size>28*1024*1024){ alert(`${file.name}: 28MB 초과입니다.`); return; } const reader=new FileReader(); reader.onload=async()=>{ const compressed=await downscaleDataUrl(reader.result,1600,0.92); images.push({name:file.name,type:'image/jpeg',dataUrl:compressed,size:file.size}); renderThumbs(); }; reader.readAsDataURL(file); }); }
     function renderThumbs(){ els.thumbs.innerHTML=''; images.forEach((img,idx)=>{ const c=document.createElement('div'); c.className='thumb'; const im=document.createElement('img'); im.src=img.dataUrl; im.alt=img.name; const b=document.createElement('button'); b.textContent='삭제'; b.addEventListener('click',()=>{ images.splice(idx,1); renderThumbs(); }); c.append(im,b); els.thumbs.appendChild(c); }); }
-    ['dragenter','dragover'].forEach(evt=>{ els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.add('drag'); }); });
-    ['dragleave','drop'].forEach(evt=>{ els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.remove('drag'); }); });
+    ['dragenter','dragover'].forEach(evt=> els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.add('drag'); }));
+    ['dragleave','drop'].forEach(evt=> els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.remove('drag'); }));
     els.dropzone.addEventListener('drop', e=> addFiles(e.dataTransfer.files));
     els.dropzone.addEventListener('click', ()=> els.fileInput.click());
     els.fileInput.addEventListener('change', e=> addFiles(e.target.files));
 
+    // Chat controls
     els.clearBtn.addEventListener('click', ()=>{ els.chat.innerHTML=''; images=[]; renderThumbs(); });
-    els.stopBtn.addEventListener('click', ()=>{ if(aborter){ aborter.abort(); }});
-
+    els.stopBtn.addEventListener('click', ()=>{ if(aborter) aborter.abort(); });
     els.sendBtn.addEventListener('click', sendFromBottom);
     els.composer.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendFromBottom(); } });
-
     function sendFromBottom(){ const t=(els.composer.value||els.userPrompt.value||'').trim(); if(!t && images.length===0){ alert('메시지 입력 또는 이미지 추가가 필요합니다.'); return; } send(t,{clearComposer:true}); }
 
-    // ---------- OpenAI Responses API (Streaming) ----------
+    // OpenAI Responses API (streaming)
     async function send(userText, opts={}){
       const key=els.apiKey.value.trim(); if(!key){ alert('API 키를 입력하세요.'); return; }
       const sys=(els.systemPrompt.value||'').trim(); const model=els.model.value; const temp=parseFloat(els.temperature.value); const maxTok=parseInt(els.maxTokens.value,10);
 
-      // echo user bubble
-      appendBubble('user', userText || (images.length? '' : ''), {images}); if(opts.clearComposer){ els.composer.value=''; }
+      appendBubble('user', userText || (images.length? '' : ''), {images}); if(opts.clearComposer) els.composer.value='';
 
-      const content=[]; if(userText){ content.push({type:'input_text', text:userText}); } for(const img of images){ content.push({type:'input_image', image_url: img.dataUrl}); }
-      const input=[]; if(sys){ input.push({role:'system', content:[{type:'input_text', text:sys}]}); } input.push({role:'user', content});
+      const content=[]; if(userText) content.push({type:'input_text', text:userText}); for(const img of images) content.push({type:'input_image', image_url: img.dataUrl});
+      const input=[]; if(sys) input.push({role:'system', content:[{type:'input_text', text:sys}]}); input.push({role:'user', content});
 
-      const bubble=appendBubble('assistant',''); let buffer='';
-      const schedule=()=>{ if(renderTimer) clearTimeout(renderTimer); renderTimer=setTimeout(()=>{ renderMarkdown(bubble, buffer); }, 180); };
+      const bubble=appendBubble('assistant',''); let buffer=''; let debounce=null; const tick=()=>{ clearTimeout(debounce); debounce=setTimeout(()=> renderMarkdownAndMath(bubble, buffer), 120); };
 
       images=[]; renderThumbs(); setBusy(true); aborter=new AbortController();
       try{
-        const res=await fetch('https://api.openai.com/v1/responses',{ method:'POST', signal:aborter.signal, headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${key}`, 'Accept-Language':'ko-KR' }, body: JSON.stringify({ model, input, temperature: isFinite(temp)? temp:1, ...(isFinite(maxTok)? {max_output_tokens:maxTok}:{}), stream:true }) });
+        const res=await fetch('https://api.openai.com/v1/responses',{ method:'POST', signal:aborter.signal, headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${key}`, 'Accept-Language':'ko-KR' }, body: JSON.stringify({ model, input, temperature:isFinite(temp)?temp:1, ...(isFinite(maxTok)?{max_output_tokens:maxTok}:{}) , stream:true }) });
         if(!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-        const reader=res.body.getReader(); const decoder=new TextDecoder('utf-8'); const onChunk=makeSSEParser((evt)=>{ if(evt?.type==='done') return; const d=extractDelta(evt); if(typeof d==='string'){ buffer+=d; schedule(); } });
-        while(true){ const {value, done}=await reader.read(); if(done) break; onChunk(decoder.decode(value,{stream:true})); }
+        const reader=res.body.getReader(); const dec=new TextDecoder('utf-8'); const on=makeSSEParser(evt=>{ if(evt?.type==='done') return; const d=extractDelta(evt); if(typeof d==='string'){ buffer+=d; tick(); } });
+        while(true){ const {value, done}=await reader.read(); if(done) break; on(dec.decode(value,{stream:true})); }
       }catch(err){ buffer += `\n\n🚫 **오류**\n\n${String(err.message||err)}`; }
-      finally{ setBusy(false); aborter=null; renderMarkdown(bubble, buffer); }
+      finally{ setBusy(false); aborter=null; renderMarkdownAndMath(bubble, buffer); }
     }
   </script>
 </body>
