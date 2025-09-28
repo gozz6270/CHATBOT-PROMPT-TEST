@@ -3,250 +3,623 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>장재웅의 챗봇 — Clean Build (Streaming + MathJax Fixed)</title>
+  <title>서사시: 아르카나 왕국의 기사단</title>
   <style>
-    :root{ --panel:#ffffff; --border:#e5e7eb; --text:#111827; --accent:#3b82f6; --danger:#ef4444; }
-    *{box-sizing:border-box}
-    html,body{height:100%}
-    body{margin:0; background:#fff; color:var(--text); font:14px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Noto Sans KR,"Apple Color Emoji","Segoe UI Emoji"}
-    .app{display:flex; height:100vh}
+    :root {
+      color-scheme: light;
+      --bg: #f4f1ea;
+      --panel: rgba(255, 255, 255, 0.86);
+      --text: #22140e;
+      --accent: #7c3f00;
+      --accent-soft: rgba(124, 63, 0, 0.12);
+      --border: rgba(71, 40, 16, 0.25);
+      --shadow: 0 18px 40px rgba(80, 45, 20, 0.18);
+    }
 
-    /* LEFT: 기존 UI 그대로 */
-    .left{width:440px; min-width:340px; max-width:560px; border-right:1px solid var(--border); background:#fff; padding:16px; overflow:auto}
-    h1{font-size:16px; margin:0 0 8px}
-    label{display:block; font-size:12px; color:#374151; margin:10px 0 6px}
-    input,textarea,select{width:100%; background:#fff; color:var(--text); border:1px solid var(--border); border-radius:10px; padding:10px 12px; outline:none}
-    textarea{min-height:86px; resize:vertical}
-    .row{display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center}
-    .btn{background:var(--accent); border:none; color:#fff; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600}
-    .btn.danger{background:var(--danger)}
-    .switch{display:inline-flex; align-items:center; gap:8px; margin:6px 0 4px 0}
-    .switch input{width:16px; height:16px}
-    .switch .label{font-size:12px; color:#374151}
+    * {
+      box-sizing: border-box;
+    }
 
-    /* RIGHT: 기존 UI 그대로 */
-    .right{flex:1; display:flex; flex-direction:column; min-width:0}
-    .chat{flex:1; overflow:auto; padding:0 12px 8px; display:flex; flex-direction:column}
-    .bubble{max-width:78ch; padding:12px 14px; margin:12px 0; border:1px solid var(--border); border-radius:14px; background:#f8fafc}
-    .bubble.user{background:#eef2ff; margin-left:auto}
-    .bubble .content{white-space:pre-wrap; word-wrap:break-word}
-    .attachments{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px}
-    .attachments img{width:120px; height:120px; object-fit:cover; border-radius:12px; border:1px solid var(--border)}
+    html, body {
+      height: 100%;
+    }
 
-    .dropzone{margin:8px 12px; border:1px dashed #cbd5e1; border-radius:14px; padding:12px; text-align:center; color:#475569; background:#f9fafb}
-    .thumbs{display:flex; gap:10px; flex-wrap:wrap; margin-top:8px}
-    .thumb{position:relative; width:90px; height:90px; border:1px solid var(--border); border-radius:10px; overflow:hidden; background:#fff}
-    .thumb img{width:100%; height:100%; object-fit:cover}
-    .thumb button{position:absolute; top:4px; right:4px; background:#0008; border:none; color:#fff; border-radius:7px; font-size:11px; padding:4px 6px; cursor:pointer}
+    body {
+      margin: 0;
+      font-family: "Maru Gothic", "Noto Serif KR", "Pretendard", "Apple SD Gothic Neo", sans-serif;
+      background: var(--bg) url('https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=1600&q=80') center/cover fixed;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
 
-    .composer{display:flex; gap:10px; padding:10px 12px; border-top:1px solid var(--border); background:#fff}
-    .composer textarea{height:56px; min-height:56px; flex:1}
+    main {
+      width: min(920px, 100%);
+      background: var(--panel);
+      border-radius: 26px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+      padding: 32px 36px 40px;
+      display: grid;
+      gap: 28px;
+    }
+
+    header {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 38px);
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.12);
+    }
+
+    header p {
+      margin: 0;
+      color: rgba(34, 20, 14, 0.72);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+
+    .status {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      font-size: 14px;
+    }
+
+    .status-card {
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255, 248, 236, 0.9);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .status-card strong {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(34, 20, 14, 0.6);
+    }
+
+    #story {
+      line-height: 1.8;
+      font-size: 16px;
+      margin: 0;
+      padding: 24px 26px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid var(--border);
+    }
+
+    #choices {
+      display: grid;
+      gap: 12px;
+    }
+
+    button.choice {
+      padding: 14px 18px;
+      border-radius: 14px;
+      border: 1px solid rgba(124, 63, 0, 0.2);
+      background: rgba(255, 252, 247, 0.92);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border 0.15s ease;
+    }
+
+    button.choice:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(68, 41, 20, 0.15);
+      border-color: rgba(124, 63, 0, 0.35);
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    button.choice:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .log {
+      max-height: 180px;
+      overflow: auto;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.65);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .log-entry + .log-entry {
+      margin-top: 8px;
+      padding-top: 6px;
+      border-top: 1px dashed rgba(124, 63, 0, 0.18);
+    }
+
+    .controls {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .controls button {
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(124, 63, 0, 0.45);
+      background: rgba(124, 63, 0, 0.1);
+      color: var(--accent);
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .controls button:hover {
+      background: rgba(124, 63, 0, 0.18);
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 16px;
+      }
+
+      main {
+        padding: 24px;
+      }
+
+      #story {
+        padding: 18px;
+      }
+    }
   </style>
-
-  <!-- Markdown & Sanitize -->
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dompurify@2.5.7/dist/purify.min.js"></script>
-
-  <!-- MathJax v3: 정확한 구분자(\(\), \[\]) + ready gate -->
-  <script>
-    window.__MATHJAX_READY__ = new Promise((resolve)=>{
-      window.MathJax = {
-        tex: {
-          inlineMath: [['$','$'], ['\\(','\\)']],
-          displayMath: [['$$','$$'], ['\\[','\\]']],
-          processEscapes: true,
-          packages: {'[+]':['base','ams']}
-        },
-        options: { renderActions: { addMenu: [] } },
-        startup: { ready: ()=>{ MathJax.startup.defaultReady(); resolve(); } }
-      };
-    });
-  </script>
-  <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 </head>
 <body>
-  <div class="app">
-    <aside class="left">
-      <h1>장재웅의 챗봇</h1>
+  <main>
+    <header>
+      <h1>서사시: 아르카나 왕국의 기사단</h1>
+      <p>14세기 아르카나 왕국. 당신은 국경을 위협하는 어둠 속에서 빛을 지키고자 서약한 신참 기사입니다. 
+      선택은 곧 운명이 되니, 매 장면마다 신중히 판단하세요.</p>
+    </header>
 
-      <label for="apiKey">API 키</label>
-      <div class="row">
-        <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off" />
-        <button class="btn" id="toggleKey">보기</button>
-      </div>
-      <div class="switch">
-        <input id="rememberKey" type="checkbox" />
-        <span class="label">브라우저에 저장</span>
-      </div>
+    <section class="status" aria-label="기사단 현황">
+      <article class="status-card">
+        <strong>명예</strong>
+        <span id="honor">0</span>
+      </article>
+      <article class="status-card">
+        <strong>재정</strong>
+        <span id="wealth">0 실버</span>
+      </article>
+      <article class="status-card">
+        <strong>용기</strong>
+        <span id="valor">0</span>
+      </article>
+      <article class="status-card">
+        <strong>소지품</strong>
+        <span id="inventory">없음</span>
+      </article>
+    </section>
 
-      <label for="model">모델</label>
-      <select id="model">
-        <option value="gpt-4o" selected>gpt-4o (권장)</option>
-        <option value="gpt-4o-mini">gpt-4o-mini</option>
-        <option value="gpt-4.1">gpt-4.1</option>
-        <option value="gpt-4.1-mini">gpt-4.1-mini</option>
-      </select>
+    <p id="story" aria-live="polite"></p>
 
-      <label for="temperature">temperature: <span id="tempVal">1.0</span></label>
-      <input id="temperature" type="range" min="0" max="2" step="0.01" value="1"/>
+    <section id="choices" aria-label="선택지"></section>
 
-      <label for="maxTokens">출력 토큰 상한 (max_output_tokens)</label>
-      <input id="maxTokens" type="number" min="1" max="8192" placeholder="예: 800" />
+    <section class="log" id="log" aria-label="연대기"></section>
 
-      <label for="systemPrompt">시스템 프롬프트</label>
-      <textarea id="systemPrompt" placeholder="예) 한국어·마크다운·LaTeX로 답변"></textarea>
-
-      <label for="userPrompt">유저 프롬프트</label>
-      <textarea id="userPrompt" placeholder="질문 또는 요청"></textarea>
-    </aside>
-
-    <main class="right">
-      <div id="chat" class="chat" aria-live="polite" aria-busy="false"></div>
-
-      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="이미지 업로드">
-        <div><strong>이미지 업로드</strong> — 드래그&드롭 또는 클릭</div>
-        <input id="fileInput" type="file" accept="image/*" multiple hidden />
-        <div id="thumbs" class="thumbs" aria-live="polite"></div>
-      </div>
-
-      <div class="composer">
-        <textarea id="composer" placeholder="여기에 메시지 입력 (Shift+Enter 줄바꿈)"></textarea>
-        <button class="btn" id="sendBtn">전송</button>
-        <button class="btn danger" id="stopBtn">중지</button>
-        <button class="btn" id="clearBtn">초기화</button>
-      </div>
-    </main>
-  </div>
+    <div class="controls">
+      <button id="restart">처음부터 다시</button>
+    </div>
+  </main>
 
   <script>
-    const els = {
-      apiKey: document.getElementById('apiKey'), toggleKey: document.getElementById('toggleKey'), rememberKey: document.getElementById('rememberKey'),
-      model: document.getElementById('model'), temperature: document.getElementById('temperature'), tempVal: document.getElementById('tempVal'), maxTokens: document.getElementById('maxTokens'),
-      systemPrompt: document.getElementById('systemPrompt'), userPrompt: document.getElementById('userPrompt'),
-      chat: document.getElementById('chat'), composer: document.getElementById('composer'),
-      dropzone: document.getElementById('dropzone'), fileInput: document.getElementById('fileInput'), thumbs: document.getElementById('thumbs'),
-      sendBtn: document.getElementById('sendBtn'), stopBtn: document.getElementById('stopBtn'), clearBtn: document.getElementById('clearBtn'),
+    const state = {
+      scene: "intro",
+      honor: 2,
+      wealth: 14,
+      valor: 1,
+      inventory: new Set(),
+      chronicle: []
     };
 
-    let images = []; let aborter=null; let renderTimer=null;
+    const storyEl = document.getElementById("story");
+    const choicesEl = document.getElementById("choices");
+    const honorEl = document.getElementById("honor");
+    const wealthEl = document.getElementById("wealth");
+    const valorEl = document.getElementById("valor");
+    const inventoryEl = document.getElementById("inventory");
+    const logEl = document.getElementById("log");
+    const restartBtn = document.getElementById("restart");
 
-    // Local save
-    function saveKeyIfNeeded(){ if(els.rememberKey.checked){ localStorage.setItem('OPENAI_API_KEY', els.apiKey.value||''); } else { localStorage.removeItem('OPENAI_API_KEY'); } }
-    function loadKey(){ const k=localStorage.getItem('OPENAI_API_KEY'); if(k){ els.apiKey.value=k; els.rememberKey.checked=true; } }
-    loadKey();
-    els.toggleKey.addEventListener('click', ()=>{ els.apiKey.type = els.apiKey.type==='password' ? 'text' : 'password'; els.apiKey.focus(); });
-    els.rememberKey.addEventListener('change', saveKeyIfNeeded);
-    els.apiKey.addEventListener('change', saveKeyIfNeeded);
+    const addLog = (entry) => {
+      const timestamp = new Date().toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+      state.chronicle.unshift(`[${timestamp}] ${entry}`);
+      renderLog();
+    };
 
-    els.temperature.addEventListener('input', e=> els.tempVal.textContent=e.target.value);
+    const renderLog = () => {
+      logEl.innerHTML = state.chronicle
+        .map((entry) => `<div class="log-entry">${entry}</div>`)
+        .join("");
+    };
 
-    // Markdown
-    function mdToHtml(markdown){ return DOMPurify.sanitize(marked.parse(markdown)); }
+    const updateStatus = () => {
+      honorEl.textContent = state.honor.toString();
+      wealthEl.textContent = `${state.wealth} 실버`;
+      valorEl.textContent = state.valor.toString();
+      inventoryEl.textContent = state.inventory.size
+        ? Array.from(state.inventory).join(", ")
+        : "없음";
+    };
 
-    // MathJax typeset helper
-    function typeset(el){ if(window.__MATHJAX_READY__) window.__MATHJAX_READY__.then(()=>{ if(window.MathJax?.typesetPromise){ MathJax.typesetClear([el]); MathJax.typesetPromise([el]); } }); }
+    const adjust = (key, amount) => {
+      state[key] = Math.max(0, state[key] + amount);
+    };
 
-    // --- 수식 마스킹 → 비수식 구간 정규화(√ 등) → 마크다운 → 복원 → typeset ---
-    function maskMath(src){
-      let text=src; const tokens=[]; let i=0;
-      // fenced code (` ```math`, ` ```latex`, ` ```tex` )
-      const lines=text.split(/\r?\n/); let out=[], inFence=false, lang='', buf=[]; const open=/^```\s*([^`\s]*)\s*$/, close=/^```\s*$/;
-      function flush(){ const content=buf.join('\n'); const k=`@@M${i++}@@`; if(['math','latex','tex'].includes((lang||'').toLowerCase())){ tokens.push({s:`$$${content}$$`}); out.push(k);} else { out.push('```'+lang); out.push(content); out.push('```'); } buf=[]; lang=''; inFence=false; }
-      for(const ln of lines){ if(!inFence && open.test(ln)){ inFence=true; lang=ln.replace(open,'$1'); buf=[]; continue;} if(inFence && close.test(ln)){ flush(); continue;} if(inFence){ buf.push(ln); continue;} out.push(ln);} if(inFence) flush(); text=out.join('\n');
-      // display
-      text=text.replace(/\\\[([\s\S]*?)\\\]/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`\\[${p}\\]`}); return k; });
-      text=text.replace(/\$\$([\s\S]*?)\$\$/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`$$${p}$$`}); return k; });
-      // inline
-      text=text.replace(/\\\(([\s\S]*?)\\\)/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`\\(${p}\\)`}); return k; });
-      text=text.replace(/\$(?!\$)([^\n$]+?)\$(?!\$)/g,(_,p)=>{ const k=`@@M${i++}@@`; tokens.push({s:`$${p}$`}); return k; });
-      return {text, tokens};
-    }
+    const requireItem = (item) => (state.inventory.has(item));
 
-    function supersAndSymbols(s){ const map={'·':'\\cdot ','⋅':'\\cdot ','•':'\\cdot ','−':'-','–':'-','—':'-','÷':'/'}; s=s.replace(/[·⋅•−–—÷]/g,ch=>map[ch]); const sd={'⁰':'0','¹':'1','²':'2','³':'3','⁴':'4','⁵':'5','⁶':'6','⁷':'7','⁸':'8','⁹':'9','ⁿ':'n'}; return s.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ]/g,m=>`^{${sd[m]}}`); }
+    const addItem = (item) => {
+      state.inventory.add(item);
+    };
 
-    function canonicalizeRootsStrict(s){
-      s=s.replace(/√[ \t]*(?:\r?\n[ \t]*)+/g,'√'); s=supersAndSymbols(s);
-      const pairs={'(' :')','{':'}','[':']','⟮':'⟯','（':'）','［':'］'};
-      const isWord = ch=>/[\p{L}\p{N}_π]/u.test(ch);
-      function readBracket(str,i){ const open=str[i], close=pairs[open]; let d=1, j=i+1; for(; j<str.length; j++){ const c=str[j]; if(c===open) d++; else if(c===close){ d--; if(d===0) break; } } if(d!==0) return [null,i]; return [str.slice(i+1,j), j+1]; }
-      function readSingleToken(str,i){ let k=i; if(!isWord(str[k])) return [null,i]; while(k<str.length&&isWord(str[k])) k++; while(k<str.length){ if(str[k]==='^'||str[k]==='_'){ k++; if(k>=str.length) break; if(str[k]==='{'){ const [inner,j2]=readBracket(str,k); if(inner==null) return [null,i]; k=j2; } else { let st=k; while(k<str.length&&isWord(str[k])) k++; if(st===k) return [null,i]; } continue;} break;} return [str.slice(i,k),k]; }
-      let out='';
-      for(let i=0;i<s.length;i++){
-        if(s[i]!== '√'){ out+=s[i]; continue; }
-        let j=i+1; while(j<s.length && /\s/.test(s[j])) j++;
-        let index=null; if(s[j]==='['||s[j]==='［'){ const [idx,j2]=readBracket(s,j); if(idx==null){ out+='√'; continue;} index=idx.trim(); j=j2; while(j<s.length && /\s/.test(s[j])) j++; }
-        let rad=null; if(pairs[s[j]]){ const [inner,j2]=readBracket(s,j); if(inner!=null){ rad=inner.trim(); j=j2; } } else { const [tok,j2]=readSingleToken(s,j); rad=tok; j=j2; }
-        if(!rad){ out+='√'; i=j-1; continue; }
-        out += `$\\sqrt${index?`[${index}]`:''}{${rad}}$`; i=j-1;
+    const removeItem = (item) => {
+      state.inventory.delete(item);
+    };
+
+    const scenes = {
+      intro: {
+        text: () => `성채의 종소리가 새벽 공기를 가르는 가운데, 당신은 기사단의 서약석 앞에 서 있습니다.\n` +
+          `대수도원장 아델리아가 은빛 성작을 들어 올리며 묻습니다. "${state.honor >= 2 ? "이미 전설을 기대하는 눈빛" : "눈빛 속에서 떨림을 느끼며"} 그대의 길을 서약하겠는가?"` ,
+        options: [
+          {
+            text: "성작에 입맞추고 왕국을 위해 싸우겠다고 맹세한다.",
+            effect: () => {
+              adjust("honor", 2);
+              adjust("valor", 1);
+              addLog("기사단에 정식으로 서약하여 명예가 높아졌다.");
+            },
+            next: "village_square"
+          },
+          {
+            text: "의식을 미루고 주변을 둘러보며 기회를 엿본다.",
+            effect: () => {
+              addLog("의식을 미루자 선배 기사들이 의아한 눈길을 보냈다.");
+              adjust("honor", -1);
+              adjust("valor", 1);
+            },
+            next: "hallway_whispers"
+          }
+        ]
+      },
+      hallway_whispers: {
+        text: () => `차가운 회랑에서 서기관이 몰래 건넨 조약서를 발견합니다.\n` +
+          `"남쪽 국경의 도적 출몰 보고를 조사해주시오." 비밀 임무를 떠맡을 기회입니다.`,
+        options: [
+          {
+            text: "명령서를 숨기고 홀로 남쪽 국경으로 향한다.",
+            effect: () => {
+              adjust("honor", 1);
+              adjust("valor", 1);
+              addItem("비밀 조약서");
+              addLog("비밀 임무를 위해 홀로 길을 나섰다.");
+            },
+            next: "forest_patrol"
+          },
+          {
+            text: "의식을 마칠 때까지 기다렸다가 정식으로 보고한다.",
+            effect: () => {
+              adjust("honor", 2);
+              addLog("정식 절차를 밟아 상관의 신뢰를 얻었다.");
+            },
+            next: "village_square"
+          }
+        ]
+      },
+      village_square: {
+        text: () => `성문 아래 마을 광장에는 전쟁 준비로 분주한 장인과 상인들이 가득합니다.\n` +
+          `늙은 대장장이가 당신에게 말을 걸며 갑옷과 장비를 제안합니다.`,
+        options: [
+          {
+            text: "14 실버를 지불하고 장인이 만든 새 방패를 구입한다.",
+            available: () => state.wealth >= 14,
+            effect: () => {
+              state.wealth -= 14;
+              addItem("수호 방패");
+              adjust("valor", 1);
+              addLog("든든한 방패를 얻어 용기가 솟았다.");
+            },
+            next: "training_yard"
+          },
+          {
+            text: "시장 한켠의 수도사에게 기부하여 축복을 받는다. (6 실버)",
+            available: () => state.wealth >= 6,
+            effect: () => {
+              state.wealth -= 6;
+              adjust("honor", 2);
+              addLog("수도사의 축복으로 명예가 빛나기 시작했다.");
+            },
+            next: "training_yard"
+          },
+          {
+            text: "돈을 아끼고 바로 훈련장으로 향한다.",
+            effect: () => {
+              addLog("재정을 아껴 두기로 했다.");
+            },
+            next: "training_yard"
+          }
+        ]
+      },
+      training_yard: {
+        text: () => `훈련장에서는 노련한 교관 브렌윈이 수련생들을 지도하고 있습니다.\n` +
+          `그는 당신에게 전투 외에도 리더십이 필요하다고 조언합니다.`,
+        options: [
+          {
+            text: "수호 방패를 들고 방어 훈련을 집중적으로 익힌다.",
+            available: () => requireItem("수호 방패"),
+            effect: () => {
+              adjust("valor", 2);
+              addLog("방패술이 크게 향상되었다.");
+            },
+            next: "forest_patrol"
+          },
+          {
+            text: "후배 수련생들을 지도하며 신뢰를 얻는다.",
+            effect: () => {
+              adjust("honor", 1);
+              addLog("동료 수련생들이 당신을 따르게 되었다.");
+            },
+            next: "forest_patrol"
+          },
+          {
+            text: "야간 경계 근무를 자원한다.",
+            effect: () => {
+              adjust("valor", 1);
+              state.wealth += 4;
+              addLog("야간 근무 수당을 받아 재정이 늘었다.");
+            },
+            next: "forest_patrol"
+          }
+        ]
+      },
+      forest_patrol: {
+        text: () => `남쪽 국경의 숲은 안개로 뒤덮여 있고, 나무 사이로 낮은 속삭임이 들려옵니다.\n` +
+          `정찰 중인 당신은 도적단이 왕국 보급대를 노리고 있음을 알아챕니다.`,
+        options: [
+          {
+            text: "도적들의 은신처를 먼저 파악하기 위해 정찰을 계속한다.",
+            effect: () => {
+              adjust("valor", 1);
+              addLog("도적단의 지도를 머릿속에 새겼다.");
+            },
+            next: "bandit_camp"
+          },
+          {
+            text: "근처 수도자 힐다를 찾아 약초와 정보를 구한다.",
+            effect: () => {
+              addItem("힐다의 약초");
+              addLog("힐다가 회복 약초와 도적의 약점을 알려주었다.");
+            },
+            next: "herbalist_hut"
+          },
+          {
+            text: "곧장 본부에 돌아가 병력을 요청한다.",
+            effect: () => {
+              adjust("honor", 1);
+              addLog("보고를 통해 기사단의 신뢰를 쌓았다.");
+            },
+            next: "castle_hall"
+          }
+        ]
+      },
+      herbalist_hut: {
+        text: () => `늪지대 깊숙한 힐다의 오두막. 그녀는 도적 두목이 고대 유물을 찾고 있다고 경고합니다.`,
+        options: [
+          {
+            text: "약초와 정보를 토대로 도적 소굴에 잠입한다.",
+            effect: () => {
+              adjust("valor", 1);
+              addLog("약초 향으로 호위병의 경계를 무너뜨렸다.");
+            },
+            next: "bandit_camp"
+          },
+          {
+            text: "힐다를 설득해 왕국에 협력하게 만든다.",
+            effect: () => {
+              adjust("honor", 2);
+              addLog("힐다가 왕국에 협력하기로 약속했다.");
+            },
+            next: "castle_hall"
+          }
+        ]
+      },
+      bandit_camp: {
+        text: () => `밤하늘 아래 도적들의 모닥불이 타오르고, 두목 라곤이 전리품을 나누고 있습니다.`,
+        options: [
+          {
+            text: "기습 공격으로 라곤을 제압한다.",
+            effect: () => {
+              adjust("valor", 2);
+              state.wealth += 10;
+              addLog("기습에 성공해 도적들의 전리품을 되찾았다.");
+            },
+            next: "castle_hall"
+          },
+          {
+            text: "비밀 조약서를 제시해 라곤과 협상을 시도한다.",
+            available: () => requireItem("비밀 조약서"),
+            effect: () => {
+              adjust("honor", 2);
+              addItem("라곤의 서약");
+              addLog("라곤이 왕국과 휴전 협약을 맺었다.");
+            },
+            next: "castle_hall"
+          },
+          {
+            text: "도적들의 수송품에 힐다의 약초를 섞어 혼란을 유도한다.",
+            available: () => requireItem("힐다의 약초"),
+            effect: () => {
+              removeItem("힐다의 약초");
+              adjust("valor", 1);
+              addLog("약초의 향으로 도적들이 잠들어 버렸다.");
+            },
+            next: "castle_hall"
+          }
+        ]
+      },
+      castle_hall: {
+        text: () => `성채의 대연회장. 섭정 로웰 경이 당신의 보고를 기다리고 있습니다.\n` +
+          `당신의 선택은 왕국의 전략을 좌우할 것입니다.`,
+        options: [
+          {
+            text: "도적단의 전력을 상세히 보고하고 협상 전략을 제안한다.",
+            effect: () => {
+              adjust("honor", 2);
+              addLog("로웰 경이 당신을 전략가로 인정했다.");
+            },
+            next: "tournament"
+          },
+          {
+            text: "기습 성공을 강조하며 즉각적인 토벌을 건의한다.",
+            effect: () => {
+              adjust("valor", 1);
+              addLog("왕국의 군대가 토벌 준비에 나섰다.");
+            },
+            next: "tournament"
+          },
+          {
+            text: "라곤의 서약을 공개해 평화 협정을 촉구한다.",
+            available: () => requireItem("라곤의 서약"),
+            effect: () => {
+              adjust("honor", 3);
+              addLog("평화 협정이 체결되어 백성들이 환호했다.");
+            },
+            next: "tournament"
+          }
+        ]
+      },
+      tournament: {
+        text: () => `전쟁 회의가 끝난 뒤, 성에서 명예 토너먼트가 열립니다.\n` +
+          `당신은 관중 앞에서 자신의 길을 증명해야 합니다.`,
+        options: [
+          {
+            text: "명예의 서약을 되새기며 성실하게 결투를 치른다.",
+            effect: () => {
+              adjust("honor", 1);
+              adjust("valor", 1);
+              addLog("정정당당한 결투로 기사단의 신뢰를 얻었다.");
+            },
+            next: "ending"
+          },
+          {
+            text: "관중의 환호를 등에 업고 화려한 기술을 선보인다.",
+            effect: () => {
+              adjust("valor", 2);
+              state.wealth += 8;
+              addLog("화려한 결투로 상금을 거머쥐었다.");
+            },
+            next: "ending"
+          }
+        ]
+      },
+      ending: {
+        text: () => {
+          const honor = state.honor;
+          const valor = state.valor;
+          const wealth = state.wealth;
+          if (honor >= 8 && valor >= 6) {
+            return `왕국의 연대기는 당신을 "황금 방패"라 부르며 기록합니다.\n` +
+              `명예와 용기의 균형을 이룬 당신은 기사단의 새로운 지휘관이 되었습니다.`;
+          }
+          if (honor >= 6) {
+            return `당신의 이름은 성가에 실려 후배 기사들의 귀감이 됩니다.\n` +
+              `빛나는 명예로 아르카나를 지켰지만, 언제든 새로운 도전을 향해 떠날 준비를 합니다.`;
+          }
+          if (valor >= 7) {
+            return `당신은 국경을 지킨 전장의 영웅으로 노래됩니다.\n` +
+              `무모할 정도의 용기가 때로는 왕국을 구했고, 재산은 ${wealth} 실버에 달합니다.`;
+          }
+          if (wealth >= 30) {
+            return `탐험 중 모은 재화를 바탕으로 기사단의 후원자가 되었습니다.\n` +
+              `명예로운 삶은 아니지만, 백성들은 당신의 자선에 감사해합니다.`;
+          }
+          return `전쟁은 끝났지만 당신의 이름은 아직 작게 속삭여집니다.\n` +
+            `다음 번에는 더 큰 명예를 향해 나아갈 수 있을 것입니다.`;
+        },
+        options: [
+          {
+            text: "새로운 연대기를 시작한다.",
+            effect: () => restartGame(),
+            next: "intro"
+          }
+        ]
       }
-      return out;
-    }
+    };
 
-    function renderMarkdownAndMath(bubble, markdown){
-      const contentEl=bubble.querySelector('.content');
-      const masked=maskMath(markdown||'');
-      const nonMath = masked.text.split(/\r?\n/).map(canonicalizeRootsStrict).join('\n');
-      let html = mdToHtml(nonMath);
-      html = html.replace(/@@M(\d+)@@/g,(m,i)=>`<span class="math-holder" data-i="${i}"></span>`);
-      contentEl.innerHTML = html;
-      const holders = contentEl.querySelectorAll('.math-holder');
-      holders.forEach(h=>{ const i=Number(h.getAttribute('data-i')); const obj=masked.tokens[i]; if(!obj) return; h.textContent = obj.s; });
-      typeset(contentEl);
-    }
+    const showScene = (id) => {
+      state.scene = id;
+      const scene = scenes[id];
+      if (!scene) {
+        storyEl.textContent = "길을 잃었습니다.";
+        choicesEl.innerHTML = "";
+        return;
+      }
 
-    function appendBubble(role, initialMarkdown='', opts={}){
-      const div=document.createElement('div'); div.className=`bubble ${role}`;
-      const content=document.createElement('div'); content.className='content'; div.appendChild(content);
-      els.chat.appendChild(div); els.chat.scrollTop=els.chat.scrollHeight;
-      renderMarkdownAndMath(div, initialMarkdown);
-      if(role==='user' && opts.images?.length){ const at=document.createElement('div'); at.className='attachments'; for(const img of opts.images){ const im=document.createElement('img'); im.src=img.dataUrl; im.alt=img.name||'image'; at.appendChild(im);} div.appendChild(at); }
-      return div;
-    }
+      const description = typeof scene.text === "function" ? scene.text() : scene.text;
+      storyEl.textContent = description;
+      choicesEl.innerHTML = "";
 
-    function setBusy(v){ els.chat.setAttribute('aria-busy', v? 'true':'false'); els.sendBtn.disabled=!!v; els.stopBtn.disabled=!v; }
+      scene.options.forEach((option, index) => {
+        const available = option.available ? option.available() : true;
+        const button = document.createElement("button");
+        button.className = "choice";
+        button.textContent = option.text;
+        button.disabled = !available;
+        button.addEventListener("click", () => {
+          option.effect?.();
+          updateStatus();
+          const nextScene = typeof option.next === "function" ? option.next() : option.next;
+          if (nextScene === "ending") {
+            addLog("운명의 선택이 결말을 결정했다.");
+          }
+          showScene(nextScene);
+        });
+        choicesEl.appendChild(button);
+      });
+    };
 
-    // SSE helpers
-    function makeSSEParser(onEvent){ let buffer=''; return (chunk)=>{ buffer+=chunk; const parts=buffer.split(/\n\n/); buffer=parts.pop(); for(const part of parts){ const line=part.split(/\n/).find(l=>l.startsWith('data:')); if(!line) continue; const s=line.replace(/^data:\s*/, ''); if(s==='[DONE]'){ onEvent({type:'done'}); continue;} try{ onEvent(JSON.parse(s)); }catch(_){} } }; }
-    function extractDelta(evt){ if(typeof evt?.type==='string'){ if(evt.type.includes('output_text.delta')&&typeof evt.delta==='string') return evt.delta; if(evt.type.includes('response.delta')&&typeof evt.delta?.output_text==='string') return evt.delta.output_text; if(evt.type.includes('message.delta')){ const t=evt?.delta?.content?.[0]?.text; if(typeof t==='string') return t; } } const cc=evt?.choices?.[0]; if(cc?.delta?.content) return cc.delta.content; }
+    const restartGame = () => {
+      state.scene = "intro";
+      state.honor = 2;
+      state.wealth = 14;
+      state.valor = 1;
+      state.inventory.clear();
+      state.chronicle.length = 0;
+      addLog("새로운 서사가 시작되었다.");
+      updateStatus();
+      showScene("intro");
+    };
 
-    // Images
-    async function downscaleDataUrl(dataUrl, maxSide=1600, quality=0.92){ return new Promise((resolve)=>{ const img=new Image(); img.onload=()=>{ let {width,height}=img; if(Math.max(width,height)>maxSide){ const s=maxSide/Math.max(width,height); width=Math.round(width*s); height=Math.round(height*s);} const c=document.createElement('canvas'); c.width=width; c.height=height; c.getContext('2d').drawImage(img,0,0,width,height); resolve(c.toDataURL('image/jpeg', quality));}; img.onerror=()=>resolve(dataUrl); img.src=dataUrl; }); }
-    function addFiles(files){ [...files].forEach(file=>{ if(!file.type.startsWith('image/')) return; if(file.size>28*1024*1024){ alert(`${file.name}: 28MB 초과입니다.`); return; } const reader=new FileReader(); reader.onload=async()=>{ const compressed=await downscaleDataUrl(reader.result,1600,0.92); images.push({name:file.name,type:'image/jpeg',dataUrl:compressed,size:file.size}); renderThumbs(); }; reader.readAsDataURL(file); }); }
-    function renderThumbs(){ els.thumbs.innerHTML=''; images.forEach((img,idx)=>{ const c=document.createElement('div'); c.className='thumb'; const im=document.createElement('img'); im.src=img.dataUrl; im.alt=img.name; const b=document.createElement('button'); b.textContent='삭제'; b.addEventListener('click',()=>{ images.splice(idx,1); renderThumbs(); }); c.append(im,b); els.thumbs.appendChild(c); }); }
-    ['dragenter','dragover'].forEach(evt=> els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.add('drag'); }));
-    ['dragleave','drop'].forEach(evt=> els.dropzone.addEventListener(evt, e=>{ e.preventDefault(); e.stopPropagation(); els.dropzone.classList.remove('drag'); }));
-    els.dropzone.addEventListener('drop', e=> addFiles(e.dataTransfer.files));
-    els.dropzone.addEventListener('click', ()=> els.fileInput.click());
-    els.fileInput.addEventListener('change', e=> addFiles(e.target.files));
+    restartBtn.addEventListener("click", () => {
+      addLog("기사단의 연대기가 새롭게 쓰여진다.");
+      restartGame();
+    });
 
-    // Chat controls
-    els.clearBtn.addEventListener('click', ()=>{ els.chat.innerHTML=''; images=[]; renderThumbs(); });
-    els.stopBtn.addEventListener('click', ()=>{ if(aborter) aborter.abort(); });
-    els.sendBtn.addEventListener('click', sendFromBottom);
-    els.composer.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); sendFromBottom(); } });
-    function sendFromBottom(){ const t=(els.composer.value||els.userPrompt.value||'').trim(); if(!t && images.length===0){ alert('메시지 입력 또는 이미지 추가가 필요합니다.'); return; } send(t,{clearComposer:true}); }
-
-    // OpenAI Responses API (streaming)
-    async function send(userText, opts={}){
-      const key=els.apiKey.value.trim(); if(!key){ alert('API 키를 입력하세요.'); return; }
-      const sys=(els.systemPrompt.value||'').trim(); const model=els.model.value; const temp=parseFloat(els.temperature.value); const maxTok=parseInt(els.maxTokens.value,10);
-
-      appendBubble('user', userText || (images.length? '' : ''), {images}); if(opts.clearComposer) els.composer.value='';
-
-      const content=[]; if(userText) content.push({type:'input_text', text:userText}); for(const img of images) content.push({type:'input_image', image_url: img.dataUrl});
-      const input=[]; if(sys) input.push({role:'system', content:[{type:'input_text', text:sys}]}); input.push({role:'user', content});
-
-      const bubble=appendBubble('assistant',''); let buffer=''; let debounce=null; const tick=()=>{ clearTimeout(debounce); debounce=setTimeout(()=> renderMarkdownAndMath(bubble, buffer), 120); };
-
-      images=[]; renderThumbs(); setBusy(true); aborter=new AbortController();
-      try{
-        const res=await fetch('https://api.openai.com/v1/responses',{ method:'POST', signal:aborter.signal, headers:{ 'Content-Type':'application/json', 'Authorization':`Bearer ${key}`, 'Accept-Language':'ko-KR' }, body: JSON.stringify({ model, input, temperature:isFinite(temp)?temp:1, ...(isFinite(maxTok)?{max_output_tokens:maxTok}:{}) , stream:true }) });
-        if(!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-        const reader=res.body.getReader(); const dec=new TextDecoder('utf-8'); const on=makeSSEParser(evt=>{ if(evt?.type==='done') return; const d=extractDelta(evt); if(typeof d==='string'){ buffer+=d; tick(); } });
-        while(true){ const {value, done}=await reader.read(); if(done) break; on(dec.decode(value,{stream:true})); }
-      }catch(err){ buffer += `\n\n🚫 **오류**\n\n${String(err.message||err)}`; }
-      finally{ setBusy(false); aborter=null; renderMarkdownAndMath(bubble, buffer); }
-    }
+    // 초기화
+    updateStatus();
+    addLog("서약의 날이 밝았다.");
+    showScene("intro");
   </script>
 </body>
 </html>
